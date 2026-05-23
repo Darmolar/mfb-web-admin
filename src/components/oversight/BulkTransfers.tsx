@@ -16,8 +16,8 @@ export function BulkTransfers() {
       <div className="flex justify-end gap-2 mb-4">
         <Button variant="secondary" size="sm"><Download size={13} /> Export CSV</Button>
       </div>
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-max">
           <thead>
             <tr className="border-b border-slate-100">
               {['Batch Name', 'Corporate Entity', 'Recipients', 'Total Amount', 'Date', 'Status', 'Action'].map(h => (

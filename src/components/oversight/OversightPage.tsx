@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { TabBar } from '../ui/TabBar'
+import { TransactionOverview } from './TransactionOverview'
 import { SingleTransfers } from './SingleTransfers'
 import { BulkTransfers } from './BulkTransfers'
 
@@ -10,15 +11,11 @@ const tabs = [
 ]
 
 export function OversightPage() {
-  const [active, setActive] = useState('single')
+  const [active, setActive] = useState('overview')
   return (
     <div className="space-y-6">
       <TabBar tabs={tabs} active={active} onChange={setActive} />
-      {active === 'overview' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-10 text-center text-slate-400 text-sm">
-          Transaction overview charts coming soon.
-        </div>
-      )}
+      {active === 'overview' && <TransactionOverview />}
       {active === 'single' && <SingleTransfers />}
       {active === 'bulk' && <BulkTransfers />}
     </div>
