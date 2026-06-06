@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 interface BadgeProps {
   label: string
   variant?: 'green' | 'red' | 'amber' | 'blue' | 'gray' | 'purple' | 'slate'

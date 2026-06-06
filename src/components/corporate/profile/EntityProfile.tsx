@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import type { CorporateEntity } from '../../../types'
+import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Badge, statusBadge } from '../../ui/Badge'
 import { TabBar } from '../../ui/TabBar'
+import { useApi } from '../../../hooks/useApi'
+import { getCorporateDetail } from '../../../api'
+import type { CorporateDetail } from '../../../api'
 import { InstitutionalAccounts } from './InstitutionalAccounts'
 import { CorporateUsers } from './CorporateUsers'
 import { CorpTransactionHistory } from './CorpTransactionHistory'
@@ -24,12 +26,32 @@ const tabs = [
 ]
 
 interface Props {
-  entity: CorporateEntity
+  corporateId: string
   onBack: () => void
 }
 
-export function EntityProfile({ entity, onBack }: Props) {
+export function EntityProfile({ corporateId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState('accounts')
+
+  const { data: detail, loading, error } = useApi<CorporateDetail>(
+    () => getCorporateDetail(corporateId).then(r => r.data),
+    [corporateId],
+  )
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-24">
+      <Loader2 size={32} className="animate-spin text-slate-400" />
+    </div>
+  )
+
+  if (error || !detail) return (
+    <div className="space-y-5">
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">
+        <ArrowLeft size={16} /> Back to Corporate Banking
+      </button>
+      <p className="text-red-500 text-sm text-center py-12">{error ?? 'Corporate not found.'}</p>
+    </div>
+  )
 
   return (
     <div className="space-y-5">
@@ -41,20 +63,20 @@ export function EntityProfile({ entity, onBack }: Props) {
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-              <span className="text-xl font-black text-slate-600">{entity.name.charAt(0)}</span>
+              <span className="text-xl font-black text-slate-600">{detail.companyName.charAt(0)}</span>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-lg font-black text-slate-800">{entity.name}</h2>
-                <Badge label={entity.status} variant={statusBadge(entity.status)} size="md" />
+                <h2 className="text-lg font-black text-slate-800">{detail.companyName}</h2>
+                <Badge label={detail.status} variant={statusBadge(detail.status)} size="md" />
               </div>
-              <p className="text-xs text-slate-400">RC: {entity.rcNumber} · Tax ID: {entity.taxId}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{entity.hqAddress}</p>
+              <p className="text-xs text-slate-400">RC: {detail.rcNumber} · TIN: {detail.tin}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{detail.address}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs text-slate-400">Authorized Personnel</p>
-            <p className="text-xl font-black text-slate-800">{entity.authorizedPersonnel}</p>
+            <p className="text-xs text-slate-400">Primary Account</p>
+            <p className="text-sm font-black text-slate-800 font-mono">{detail.primaryAccountNumber}</p>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1.5">
@@ -66,14 +88,14 @@ export function EntityProfile({ entity, onBack }: Props) {
 
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} variant="underline" />
 
-      {activeTab === 'accounts' && <InstitutionalAccounts entity={entity} />}
-      {activeTab === 'users' && <CorporateUsers entity={entity} />}
-      {activeTab === 'transactions' && <CorpTransactionHistory entity={entity} />}
-      {activeTab === 'logins' && <LoginHistory />}
-      {activeTab === 'audit' && <AuditTrail />}
-      {activeTab === 'workflow' && <ApprovalWorkflows />}
-      {activeTab === 'limits' && <CorporateLimits />}
-      {activeTab === 'roles' && <RoleFramework />}
+      {activeTab === 'accounts'      && <InstitutionalAccounts detail={detail} />}
+      {activeTab === 'users'         && <CorporateUsers corporateId={corporateId} />}
+      {activeTab === 'transactions'  && <CorpTransactionHistory corporateId={corporateId} />}
+      {activeTab === 'logins'        && <LoginHistory corporateId={corporateId} />}
+      {activeTab === 'audit'         && <AuditTrail corporateId={corporateId} />}
+      {activeTab === 'workflow'      && <ApprovalWorkflows />}
+      {activeTab === 'limits'        && <CorporateLimits detail={detail} />}
+      {activeTab === 'roles'         && <RoleFramework />}
     </div>
   )
 }

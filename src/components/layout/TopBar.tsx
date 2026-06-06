@@ -9,6 +9,7 @@ const sectionTitles: Record<string, string> = {
   oversight: 'Transaction Oversight',
   activity: 'Activity Logs',
   governance: 'Governance',
+  admins: 'Admin Management',
   settings: 'Settings',
 }
 

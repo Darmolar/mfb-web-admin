@@ -1,10 +1,15 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
-  ScrollText, Scale, Settings, LogOut, ShieldAlert
+  ScrollText, Scale, Settings, LogOut, ShieldAlert, UserCog
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
-export type SectionId = 'overview' | 'kyc' | 'retail' | 'corporate' | 'oversight' | 'activity' | 'governance' | 'settings'
+export type SectionId = 'overview' | 'kyc' | 'retail' | 'corporate' | 'oversight' | 'activity' | 'governance' | 'admins' | 'settings'
+
+export const SECTION_IDS: SectionId[] = [
+  'overview', 'kyc', 'retail', 'corporate', 'oversight', 'activity', 'governance', 'admins', 'settings',
+]
 
 interface NavItem {
   id: SectionId
@@ -20,16 +25,17 @@ const navItems: NavItem[] = [
   { id: 'oversight', label: 'Transaction Oversight', icon: <ArrowLeftRight size={18} /> },
   { id: 'activity', label: 'Activity Logs', icon: <ScrollText size={18} /> },
   { id: 'governance', label: 'Governance', icon: <Scale size={18} /> },
+  { id: 'admins', label: 'Admin Management', icon: <UserCog size={18} /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 
 interface SidebarProps {
   active: SectionId
-  onChange: (id: SectionId) => void
 }
 
-export function Sidebar({ active, onChange }: SidebarProps) {
+export function Sidebar({ active }: SidebarProps) {
   const { logout } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <aside className="fixed left-0 top-0 h-full w-60 bg-[#2d3748] flex flex-col z-40">
@@ -47,7 +53,7 @@ export function Sidebar({ active, onChange }: SidebarProps) {
         {navItems.map(item => (
           <button
             key={item.id}
-            onClick={() => onChange(item.id)}
+            onClick={() => navigate(`/${item.id}`)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
               active === item.id
                 ? 'bg-white/15 text-white'

@@ -1,13 +1,27 @@
 import { useState } from 'react'
-import { Download, Flag, AlertTriangle } from 'lucide-react'
-import { Badge, statusBadge } from '../ui/Badge'
+import { Download, Flag, AlertTriangle, Loader2 } from 'lucide-react'
+import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { mockAuditLogs } from '../../data/mockData'
-import type { AuditLog } from '../../types'
+import { useApi } from '../../hooks/useApi'
+import { getAuditLogs } from '../../api'
+import type { AuditLogEntry } from '../../api/types'
+
+function severityVariant(s: string): 'blue' | 'amber' | 'red' {
+  if (s === 'Warning' || s === 'WARN') return 'amber'
+  if (s === 'Critical' || s === 'ERROR') return 'red'
+  return 'blue'
+}
 
 export function ActivityLogsPage() {
-  const [selected, setSelected] = useState<AuditLog | null>(null)
+  const [selected, setSelected] = useState<AuditLogEntry | null>(null)
+
+  const { data, loading, error, refetch } = useApi(
+    () => getAuditLogs({ size: 100 }).then(r => r.data),
+    [],
+  )
+
+  const logs = data?.content ?? []
 
   return (
     <>
@@ -26,54 +40,70 @@ export function ActivityLogsPage() {
             <p className="text-sm text-slate-400 mt-0.5">All admin and system actions are recorded here.</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" size="sm"><Download size={13} /> Export JSON</Button>
+            <Button variant="secondary" size="sm" onClick={refetch}><Download size={13} /> Refresh</Button>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                {['Admin / Actor', 'Action Executed', 'Context', 'Resource ID', 'Timestamp', 'Severity', ''].map(h => (
-                  <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {mockAuditLogs.map(log => (
-                <tr
-                  key={log.id}
-                  className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer"
-                  onClick={() => setSelected(log)}
-                >
-                  <td className="px-6 py-4">
-                    <p className="text-xs font-semibold text-slate-700">{log.actor}</p>
-                    <p className="text-[10px] text-slate-400">{log.actorRole}</p>
-                  </td>
-                  <td className="px-6 py-4 text-xs font-mono text-slate-600 max-w-[180px] truncate">{log.action}</td>
-                  <td className="px-6 py-4 text-xs text-slate-500">{log.context}</td>
-                  <td className="px-6 py-4 text-xs font-mono text-slate-400">{log.resourceId}</td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{log.timestamp}</td>
-                  <td className="px-6 py-4">
-                    <Badge
-                      label={log.severity}
-                      variant={log.severity === 'Info' ? 'blue' : log.severity === 'Warning' ? 'amber' : 'red'}
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      className="text-slate-300 hover:text-amber-500 cursor-pointer"
-                      onClick={e => { e.stopPropagation() }}
-                      title="Flag for revision"
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={28} className="animate-spin text-slate-400" />
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-sm text-red-500 mb-3">{error}</p>
+            <button onClick={refetch} className="text-xs text-slate-500 hover:text-slate-700 underline cursor-pointer">Retry</button>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            {logs.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-slate-400">No audit log entries found.</div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    {['Admin / Actor', 'Action Executed', 'Context', 'Resource ID', 'Timestamp', 'Severity', ''].map(h => (
+                      <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => (
+                    <tr
+                      key={log.id}
+                      className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer"
+                      onClick={() => setSelected(log)}
                     >
-                      <Flag size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-6 py-4">
+                        <p className="text-xs font-semibold text-slate-700">{log.actor}</p>
+                        <p className="text-[10px] text-slate-400">{log.actorRole}</p>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-600 max-w-[180px] truncate">{log.action}</td>
+                      <td className="px-6 py-4 text-xs text-slate-500">{log.context}</td>
+                      <td className="px-6 py-4 text-xs font-mono text-slate-400">{log.resourceId}</td>
+                      <td className="px-6 py-4 text-xs text-slate-400">{log.timestamp?.split('T')[0]}</td>
+                      <td className="px-6 py-4">
+                        <Badge label={log.severity} variant={severityVariant(log.severity)} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          className="text-slate-300 hover:text-amber-500 cursor-pointer"
+                          onClick={e => e.stopPropagation()}
+                          title="Flag for revision"
+                        >
+                          <Flag size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
       {selected && (
@@ -81,14 +111,14 @@ export function ActivityLogsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Admin / Actor', value: selected.actor },
-                { label: 'Actor Role', value: selected.actorRole },
-                { label: 'Action Executed', value: selected.action },
-                { label: 'Context', value: selected.context },
-                { label: 'Resource ID', value: selected.resourceId },
-                { label: 'IP Address', value: selected.ipAddress },
-                { label: 'Timestamp', value: selected.timestamp },
-                { label: 'Severity', value: selected.severity },
+                { label: 'Admin / Actor',     value: selected.actor },
+                { label: 'Actor Role',         value: selected.actorRole },
+                { label: 'Action Executed',    value: selected.action },
+                { label: 'Context',            value: selected.context },
+                { label: 'Resource ID',        value: selected.resourceId },
+                { label: 'IP Address',         value: selected.ipAddress ?? '—' },
+                { label: 'Timestamp',          value: selected.timestamp },
+                { label: 'Severity',           value: selected.severity },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.label}</p>
@@ -96,10 +126,12 @@ export function ActivityLogsPage() {
                 </div>
               ))}
             </div>
-            <div className="bg-slate-50 rounded-xl p-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Event Payload / Description</p>
-              <p className="text-sm text-slate-700">{selected.payload}</p>
-            </div>
+            {selected.payload && (
+              <div className="bg-slate-50 rounded-xl p-4">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Event Payload</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{selected.payload}</p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Event Lifecycle</p>
               <div className="flex items-center gap-2">

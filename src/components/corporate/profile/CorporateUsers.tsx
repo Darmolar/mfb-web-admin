@@ -1,52 +1,173 @@
-import type { CorporateEntity } from '../../../types'
-import { Badge } from '../../ui/Badge'
+import { useState } from 'react'
+import { Plus, RefreshCw, Pencil, ShieldOff, ShieldCheck } from 'lucide-react'
+import { Badge, statusBadge } from '../../ui/Badge'
+import { Button } from '../../ui/Button'
+import { Modal } from '../../ui/Modal'
+import { useApi } from '../../../hooks/useApi'
+import { useAuth } from '../../../context/AuthContext'
+import { getCorporateUsers, addCorporateUser, changeCorporateUserRole, updateCorporateUserStatus } from '../../../api'
+import type { CorporateUser } from '../../../api'
 
-interface Props { entity: CorporateEntity }
+interface Props { corporateId: string }
 
-const sampleUsers = [
-  { name: 'Tobi Adeniyi', role: 'Finance Director', email: 'tobi@nexus.com', status: 'Active' },
-  { name: 'Amaka Osei', role: 'Treasury Manager', email: 'amaka@nexus.com', status: 'Active' },
-  { name: 'Emeka Nwobi', role: 'Accountant', email: 'emeka@nexus.com', status: 'Active' },
-  { name: 'Sade Lawal', role: 'Auditor', email: 'sade@nexus.com', status: 'Inactive' },
-]
+const ROLES = ['MAKER', 'CHECKER', 'APPROVER', 'VIEWER', 'ADMIN']
 
-export function CorporateUsers({ entity }: Props) {
-  const users = sampleUsers.slice(0, entity.activeUsers + 1)
+export function CorporateUsers({ corporateId }: Props) {
+  const { user } = useAuth()
+  const { data: users, loading, error, refetch } = useApi<CorporateUser[]>(
+    () => getCorporateUsers(corporateId).then(r => r.data),
+    [corporateId],
+  )
+
+  const [showAdd, setShowAdd] = useState(false)
+  const [addForm, setAddForm] = useState({ name: '', email: '', password: '', role: ROLES[0] })
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+
+  const [editTarget, setEditTarget] = useState<CorporateUser | null>(null)
+  const [newRole, setNewRole] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user) return
+    setAdding(true); setAddError(null)
+    try {
+      await addCorporateUser(corporateId, { ...addForm, adminId: user.adminId })
+      setShowAdd(false)
+      setAddForm({ name: '', email: '', password: '', role: ROLES[0] })
+      refetch()
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add user')
+    } finally { setAdding(false) }
+  }
+
+  async function handleRoleChange(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editTarget || !user) return
+    setEditing(true)
+    try {
+      await changeCorporateUserRole(corporateId, editTarget.id, { role: newRole, adminId: user.adminId })
+      setEditTarget(null)
+      refetch()
+    } finally { setEditing(false) }
+  }
+
+  async function handleToggle(u: CorporateUser) {
+    if (!user) return
+    setTogglingId(u.id)
+    try {
+      await updateCorporateUserStatus(corporateId, u.id, {
+        status: u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE',
+        adminId: user.adminId,
+      })
+      refetch()
+    } finally { setTogglingId(null) }
+  }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Corporate Users</h4>
-        <span className="text-xs text-slate-400">{entity.authorizedPersonnel} authorized</span>
+    <>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Corporate Users</h4>
+          <div className="flex items-center gap-2">
+            <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer"><RefreshCw size={13} /></button>
+            <Button size="sm" onClick={() => setShowAdd(true)}><Plus size={13} /> Add User</Button>
+          </div>
+        </div>
+
+        {loading && <div className="px-6 py-10 text-center text-xs text-slate-400">Loading users…</div>}
+        {error && <div className="px-6 py-6 text-center text-xs text-red-500">{error}</div>}
+
+        {!loading && !error && (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['Name', 'Role', 'Status', 'MFA', 'Last Login', 'Actions'].map(h => (
+                  <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(users ?? []).length === 0 && (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-xs text-slate-400">No users found.</td></tr>
+              )}
+              {(users ?? []).map(u => (
+                <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-semibold text-slate-700">{u.name}</p>
+                    <p className="text-xs text-slate-400">{u.email}</p>
+                  </td>
+                  <td className="px-6 py-4 text-xs font-semibold text-slate-600">{u.role}</td>
+                  <td className="px-6 py-4"><Badge label={u.status} variant={statusBadge(u.status)} /></td>
+                  <td className="px-6 py-4">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.mfaEnabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {u.mfaEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{u.lastLoginAt ? u.lastLoginAt.split('T')[0] : '—'}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditTarget(u); setNewRole(u.role) }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer" title="Change role">
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => handleToggle(u)} disabled={togglingId === u.id} className={`w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer ${u.status === 'ACTIVE' ? 'hover:bg-amber-50 text-slate-400 hover:text-amber-500' : 'hover:bg-emerald-50 text-slate-400 hover:text-emerald-500'} disabled:opacity-40`} title={u.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}>
+                        {u.status === 'ACTIVE' ? <ShieldOff size={13} /> : <ShieldCheck size={13} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-100">
-            {['User Identity', 'System Role', 'Email', 'Status'].map(h => (
-              <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {users.map(u => (
-            <tr key={u.name} className="border-b border-slate-50 hover:bg-slate-50/50">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                    <span className="text-xs font-bold text-slate-600">{u.name.charAt(0)}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-slate-700">{u.name}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4 text-xs text-slate-600">{u.role}</td>
-              <td className="px-6 py-4 text-xs text-slate-400">{u.email}</td>
-              <td className="px-6 py-4">
-                <Badge label={u.status} variant={u.status === 'Active' ? 'green' : 'gray'} />
-              </td>
-            </tr>
+
+      {/* Add User */}
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Corporate User" width="max-w-md">
+        <form onSubmit={handleAdd} className="space-y-4">
+          {[['name','Full Name','text'],['email','Email','email'],['password','Password','password']].map(([k, label, type]) => (
+            <div key={k} className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label} *</label>
+              <input className={inputCls} type={type} value={addForm[k as keyof typeof addForm]} onChange={e => setAddForm(p => ({...p, [k]: e.target.value}))} required />
+            </div>
           ))}
-        </tbody>
-      </table>
-    </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Role *</label>
+            <select className={inputCls} value={addForm.role} onChange={e => setAddForm(p => ({...p, role: e.target.value}))}>
+              {ROLES.map(r => <option key={r}>{r}</option>)}
+            </select>
+          </div>
+          {addError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{addError}</p>}
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button type="submit" className="flex-1" disabled={adding}>{adding ? 'Adding…' : 'Add User'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Change Role */}
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Change User Role" width="max-w-sm">
+        {editTarget && (
+          <form onSubmit={handleRoleChange} className="space-y-4">
+            <p className="text-sm text-slate-600">Changing role for <span className="font-bold">{editTarget.name}</span></p>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">New Role</label>
+              <select className={inputCls} value={newRole} onChange={e => setNewRole(e.target.value)}>
+                {ROLES.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button type="submit" className="flex-1" disabled={editing}>{editing ? 'Saving…' : 'Save Role'}</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </>
   )
 }
+
+const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white'

@@ -1,22 +1,49 @@
 import { useState } from 'react'
-import { Download, AlertTriangle } from 'lucide-react'
+import { Download, AlertTriangle, Loader2 } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { mockTransactions } from '../../data/mockData'
-import type { Transaction } from '../../types'
+import { useApi } from '../../hooks/useApi'
+import { getTransactions } from '../../api'
+import type { TransactionItem } from '../../api/types'
 
 function fmt(n: number) { return `₦${n.toLocaleString()}` }
 
-const stats = [
-  { label: 'Tx Count', value: '24', color: 'text-slate-700 bg-slate-50' },
-  { label: 'Pending Approval', value: '3', color: 'text-amber-700 bg-amber-50' },
-  { label: 'Failed / Reversed', value: '2', color: 'text-red-700 bg-red-50' },
-]
-
 export function SingleTransfers() {
-  const [selected, setSelected] = useState<Transaction | null>(null)
-  const txs = mockTransactions.filter(t => t.type === 'Transfer')
+  const [selected, setSelected] = useState<TransactionItem | null>(null)
+
+  const { data, loading, error, refetch } = useApi(
+    () => getTransactions({ size: 100 }).then(r => r.data),
+    [],
+  )
+
+  const txs = (data?.content ?? []).filter(t => t.type === 'Transfer' || t.type === 'TRANSFER')
+
+  const pendingCount = txs.filter(t => t.status === 'Pending' || t.status === 'PENDING').length
+  const failedCount  = txs.filter(t => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED').length
+
+  const stats = [
+    { label: 'Tx Count',            value: String(txs.length), color: 'text-slate-700 bg-slate-50'   },
+    { label: 'Pending Approval',    value: String(pendingCount), color: 'text-amber-700 bg-amber-50' },
+    { label: 'Failed / Reversed',   value: String(failedCount),  color: 'text-red-700 bg-red-50'     },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 size={28} className="animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-sm text-red-500 mb-3">{error}</p>
+        <button onClick={refetch} className="text-xs text-slate-500 hover:text-slate-700 underline cursor-pointer">Retry</button>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -35,31 +62,34 @@ export function SingleTransfers() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100">
-              {['Reference ID', 'Corporate Account', 'Beneficiary', 'Amount', 'Channel', 'Date', 'Status', 'Action'].map(h => (
-                <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {txs.map(tx => (
-              <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.referenceId}</td>
-                <td className="px-6 py-4 text-xs text-slate-600">{tx.description.slice(0, 20)}...</td>
-                <td className="px-6 py-4 text-xs text-slate-700 font-semibold">{tx.beneficiary}</td>
-                <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                <td className="px-6 py-4 text-xs text-slate-500">{tx.channel}</td>
-                <td className="px-6 py-4 text-xs text-slate-400">{tx.date}</td>
-                <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
-                <td className="px-6 py-4">
-                  <Button size="sm" variant="secondary" onClick={() => setSelected(tx)}>View Details</Button>
-                </td>
+        {txs.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-slate-400">No transfer transactions found.</div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['Reference', 'Beneficiary', 'Amount', 'Channel', 'Date', 'Status', 'Action'].map(h => (
+                  <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {txs.map(tx => (
+                <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.reference}</td>
+                  <td className="px-6 py-4 text-xs text-slate-700 font-semibold">{tx.beneficiary ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
+                  <td className="px-6 py-4 text-xs text-slate-500">{tx.channel}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt?.split('T')[0]}</td>
+                  <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
+                  <td className="px-6 py-4">
+                    <Button size="sm" variant="secondary" onClick={() => setSelected(tx)}>View Details</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {selected && (
@@ -74,14 +104,15 @@ export function SingleTransfers() {
 
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Reference ID', value: selected.referenceId },
-                { label: 'Amount', value: fmt(selected.amount) },
-                { label: 'Channel', value: selected.channel },
-                { label: 'Date', value: selected.date },
-                { label: 'Customer Account', value: selected.customerId || selected.corporateId || '—' },
-                { label: 'Beneficiary', value: selected.beneficiary },
-                { label: 'Beneficiary Account', value: selected.beneficiaryAccount },
-                { label: 'Transaction Fee', value: fmt(selected.fee) },
+                { label: 'Reference',           value: selected.reference },
+                { label: 'Amount',              value: fmt(selected.amount) },
+                { label: 'Channel',             value: selected.channel },
+                { label: 'Date',                value: selected.createdAt?.split('T')[0] },
+                { label: 'Customer / Corporate', value: selected.customerId ?? selected.corporateId ?? '—' },
+                { label: 'Beneficiary',         value: selected.beneficiary ?? '—' },
+                { label: 'Beneficiary Account', value: selected.beneficiaryAccount ?? '—' },
+                { label: 'Fee',                 value: selected.fee != null ? fmt(selected.fee) : '—' },
+                { label: 'Description',         value: selected.description ?? '—' },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.label}</p>
@@ -97,22 +128,9 @@ export function SingleTransfers() {
               </div>
             )}
 
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Approval Chain</p>
-              <div className="flex items-center gap-2">
-                {['Initiator', 'Finance Director', 'Treasurer'].map((step, i, arr) => (
-                  <>
-                    <div key={step} className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${i === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{step}</div>
-                    {i < arr.length - 1 && <span key={`arrow-${i}`} className="text-slate-300 text-sm">→</span>}
-                  </>
-                ))}
-              </div>
-            </div>
-
             <div className="h-px bg-slate-100" />
             <div className="flex gap-3">
-              <Button variant="danger" className="flex-1" onClick={() => setSelected(null)}>Reverse</Button>
-              <Button variant="success" className="flex-1" onClick={() => setSelected(null)}>Approve Transfer</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setSelected(null)}>Close</Button>
             </div>
           </div>
         </Modal>
