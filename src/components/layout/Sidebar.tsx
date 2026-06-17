@@ -5,10 +5,10 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
-export type SectionId = 'overview' | 'kyc' | 'retail' | 'corporate' | 'oversight' | 'activity' | 'governance' | 'admins' | 'settings'
+export type SectionId = 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight' | 'activity' | 'governance' | 'admins' | 'settings'
 
 export const SECTION_IDS: SectionId[] = [
-  'overview', 'kyc', 'retail', 'corporate', 'oversight', 'activity', 'governance', 'admins', 'settings',
+  'overview', 'kyc', 'customers', 'corporate', 'oversight', 'activity', 'governance', 'admins', 'settings',
 ]
 
 interface NavItem {
@@ -20,7 +20,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
   { id: 'kyc', label: 'KYC & Compliance', icon: <ShieldCheck size={18} /> },
-  { id: 'retail', label: 'Retail Banking', icon: <Users size={18} /> },
+  { id: 'customers', label: 'Customers', icon: <Users size={18} /> },
   { id: 'corporate', label: 'Corporate Banking', icon: <Building2 size={18} /> },
   { id: 'oversight', label: 'Transaction Oversight', icon: <ArrowLeftRight size={18} /> },
   { id: 'activity', label: 'Activity Logs', icon: <ScrollText size={18} /> },

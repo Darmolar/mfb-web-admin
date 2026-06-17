@@ -45,7 +45,7 @@ export function useApi<T>(
     if (deps === null) return
     refetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, deps === null ? [] : deps)
 
   return { ...state, refetch }
 }

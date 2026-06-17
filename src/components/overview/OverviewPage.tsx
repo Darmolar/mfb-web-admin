@@ -1,4 +1,4 @@
-import { Users, ShieldCheck, ArrowLeftRight, Building2, Activity, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Users, ShieldCheck, ArrowLeftRight, Activity, TrendingUp, AlertTriangle } from 'lucide-react'
 import { StatCard } from '../ui/StatCard'
 import { Card } from '../ui/Card'
 import { Badge, statusBadge } from '../ui/Badge'
@@ -149,7 +149,7 @@ export function OverviewPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-slate-700">{typeof tx.amount === 'number' ? fmt(tx.amount) : '—'}</span>
-                    {tx.status && <Badge label={String(tx.status)} variant={statusBadge(String(tx.status))} />}
+                    {tx.status ? <Badge label={String(tx.status)} variant={statusBadge(String(tx.status))} /> : null}
                   </div>
                 </div>
               ))}

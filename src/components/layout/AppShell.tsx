@@ -3,7 +3,7 @@ import { Sidebar, type SectionId, SECTION_IDS } from './Sidebar'
 import { TopBar } from './TopBar'
 import { OverviewPage } from '../overview/OverviewPage'
 import { KYCPage } from '../kyc/KYCPage'
-import { RetailPage } from '../retail/RetailPage'
+import { CustomersPage } from '../customers/CustomersPage'
 import { CorporatePage } from '../corporate/CorporatePage'
 import { OversightPage } from '../oversight/OversightPage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
@@ -14,7 +14,7 @@ import { SettingsPage } from '../settings/SettingsPage'
 const sectionComponents: Record<SectionId, React.ReactNode> = {
   overview: <OverviewPage />,
   kyc: <KYCPage />,
-  retail: <RetailPage />,
+  customers: <CustomersPage />,
   corporate: <CorporatePage />,
   oversight: <OversightPage />,
   activity: <ActivityLogsPage />,

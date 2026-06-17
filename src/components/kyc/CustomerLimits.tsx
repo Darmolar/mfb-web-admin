@@ -5,7 +5,7 @@ import { getLimitOverrides } from '../../api'
 
 function fmt(n: number) { return `₦${n.toLocaleString()}` }
 
-export function RetailLimits() {
+export function CustomerLimits() {
   const { data, loading, error, refetch } = useApi(
     () => getLimitOverrides({ size: 100 }).then(r => r.data),
     [],

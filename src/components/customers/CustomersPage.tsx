@@ -10,7 +10,7 @@ import { CustomerProfile } from './profile/CustomerProfile'
 
 const statusFilters = ['', 'ACTIVE', 'LOCKED', 'SUSPENDED', 'PENDING']
 
-export function RetailPage() {
+export function CustomersPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -66,7 +66,7 @@ export function RetailPage() {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">RETAIL BANKING</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">CUSTOMERS</span>
           <span className="text-xs text-slate-400">{totalElements} users</span>
         </div>
         <table className="w-full">
