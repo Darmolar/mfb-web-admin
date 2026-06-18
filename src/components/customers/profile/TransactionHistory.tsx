@@ -1,6 +1,8 @@
 import { Badge, statusBadge } from '../../ui/Badge'
+import { DataTable, type ColumnDef } from '../../ui/DataTable'
 import { useApi } from '../../../hooks/useApi'
 import { getTransactions } from '../../../api'
+import type { TransactionItem } from '../../../api/types'
 import moment from 'moment'
 
 interface Props { customerId: string }
@@ -14,6 +16,53 @@ export function TransactionHistory({ customerId }: Props) {
   )
   const txs = data?.content ?? []
 
+  const columns: ColumnDef<TransactionItem>[] = [
+    {
+      header: 'Reference',
+      accessorKey: 'transactionReference',
+      cell: (tx) => <span className="text-xs font-mono text-slate-500">{tx.transactionReference ?? '—'}</span>,
+    },
+    {
+      header: 'Type',
+      accessorKey: 'transferType',
+      cell: (tx) => <span className="text-xs text-slate-600">{tx.transferType?.replace(/_/g, ' ') ?? '—'}</span>,
+    },
+    {
+      header: 'Amount',
+      accessorKey: 'amount',
+      cell: (tx) => <span className="text-sm font-bold text-slate-700">{fmt(tx.amount)}</span>,
+    },
+    {
+      header: 'Channel',
+      accessorKey: 'channel',
+      cell: (tx) => <span className="text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</span>,
+    },
+    {
+      header: 'Beneficiary',
+      accessorKey: 'beneficiaryName',
+      cell: (tx) => <span className="text-xs text-slate-600">{tx.beneficiaryName ?? '—'}</span>,
+    },
+    {
+      header: 'Description',
+      accessorKey: 'narration',
+      cell: (tx) => (
+        <span className="text-xs text-slate-500 max-w-[150px] truncate" title={tx.narration}>{tx.narration ?? '—'}</span>
+      ),
+    },
+    {
+      header: 'Date',
+      accessorKey: 'createdAt',
+      cell: (tx) => (
+        <span className="text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</span>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (tx) => <Badge label={tx.status} variant={statusBadge(tx.status)} />,
+    },
+  ]
+
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -23,34 +72,16 @@ export function TransactionHistory({ customerId }: Props) {
 
       {loading && <div className="px-6 py-10 text-center text-xs text-slate-400">Loading transactions…</div>}
       {error && <div className="px-6 py-6 text-center text-xs text-red-500">{error}</div>}
-      {!loading && !error && txs.length === 0 && (
-        <div className="px-6 py-10 text-center text-sm text-slate-400">No transactions found.</div>
-      )}
 
-      {!loading && !error && txs.length > 0 && (
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100">
-              {['Reference', 'Type', 'Amount', 'Channel', 'Beneficiary', 'Description', 'Date', 'Status'].map(h => (
-                <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {txs.map((tx: any) => (
-              <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.transactionReference ?? '—'}</td>
-                <td className="px-6 py-4 text-xs text-slate-600">{tx.transferType?.replace(/_/g, ' ') ?? '—'}</td>
-                <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                <td className="px-6 py-4 text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</td>
-                <td className="px-6 py-4 text-xs text-slate-600">{tx.beneficiaryName ?? '—'}</td>
-                <td className="px-6 py-4 text-xs text-slate-500 max-w-[150px] truncate" title={tx.narration}>{tx.narration ?? '—'}</td>
-                <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
-                <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {!loading && !error && (
+        <div className="px-6 py-4">
+          <DataTable<TransactionItem>
+            columns={columns}
+            data={txs}
+            searchPlaceholder="Search transactions…"
+            emptyMessage="No transactions found."
+          />
+        </div>
       )}
     </div>
   )

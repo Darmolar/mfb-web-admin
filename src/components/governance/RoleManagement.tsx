@@ -3,6 +3,7 @@ import { Check, Edit2, Plus, Trash2, X, Loader2 } from 'lucide-react'
 import { createAdminUser, updateAdminUser, deleteAdminUser, getAdminUsers } from '../../api'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
 import type { AdminUser } from '../../api/types'
 
 type DraftUser = {
@@ -194,54 +195,68 @@ export function RoleManagement() {
       )}
 
       {!loading && !error && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  {['Admin User', 'Role', 'Department', 'MFA', 'Status', 'Created', 'Actions'].map(h => (
-                    <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {admins.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">No admin users found.</td>
-                  </tr>
-                ) : admins.map(admin => (
-                  <tr key={admin.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-slate-700">{admin.name}</p>
-                      <p className="text-xs text-slate-400">{admin.email}</p>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-bold text-slate-600">{admin.role.replaceAll('_', ' ')}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500">{admin.department}</td>
-                    <td className="px-6 py-4">
-                      <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${admin.mfaEnabled ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                        {admin.mfaEnabled ? 'Enabled' : 'Off'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-700">{admin.status}</span>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">{formatDate(admin.createdAt)}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => startEdit(admin)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(admin.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable<AdminUser>
+          columns={[
+            {
+              header: 'Admin User',
+              accessorKey: 'name',
+              cell: (admin) => (
+                <>
+                  <p className="text-sm font-semibold text-slate-700">{admin.name}</p>
+                  <p className="text-xs text-slate-400">{admin.email}</p>
+                </>
+              ),
+            },
+            {
+              header: 'Role',
+              accessorKey: 'role',
+              cell: (admin) => <span className="text-xs font-bold text-slate-600">{admin.role.replaceAll('_', ' ')}</span>,
+            },
+            {
+              header: 'Department',
+              accessorKey: 'department',
+              cell: (admin) => <span className="text-xs text-slate-500">{admin.department}</span>,
+            },
+            {
+              header: 'MFA',
+              accessorKey: 'mfaEnabled',
+              cell: (admin) => (
+                <span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${admin.mfaEnabled ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {admin.mfaEnabled ? 'Enabled' : 'Off'}
+                </span>
+              ),
+            },
+            {
+              header: 'Status',
+              accessorKey: 'status',
+              cell: (admin) => (
+                <span className="rounded-full bg-blue-50 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-blue-700">{admin.status}</span>
+              ),
+            },
+            {
+              header: 'Created',
+              accessorKey: 'createdAt',
+              cell: (admin) => <span className="text-xs text-slate-500">{formatDate(admin.createdAt)}</span>,
+            },
+            {
+              header: 'Actions',
+              sortable: false,
+              cell: (admin) => (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEdit(admin)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <Edit2 size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(admin.id)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ),
+            },
+          ] as ColumnDef<AdminUser>[]}
+          data={admins}
+          searchPlaceholder="Search admin users…"
+          emptyMessage="No admin users found."
+        />
       )}
     </div>
   )

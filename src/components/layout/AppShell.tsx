@@ -6,6 +6,11 @@ import { KYCPage } from '../kyc/KYCPage'
 import { CustomersPage } from '../customers/CustomersPage'
 import { CorporatePage } from '../corporate/CorporatePage'
 import { OversightPage } from '../oversight/OversightPage'
+import { CompliancePage } from '../compliance/CompliancePage'
+import { LoansPage } from '../loans/LoansPage'
+import { SavingsPage } from '../savings/SavingsPage'
+import { QueuePage } from '../queue/QueuePage'
+import { ReferencePage } from '../reference/ReferencePage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
 import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
@@ -17,6 +22,11 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   customers: <CustomersPage />,
   corporate: <CorporatePage />,
   oversight: <OversightPage />,
+  compliance: <CompliancePage />,
+  loans: <LoansPage />,
+  savings: <SavingsPage />,
+  queue: <QueuePage />,
+  reference: <ReferencePage />,
   activity: <ActivityLogsPage />,
   governance: <GovernancePage />,
   admins: <AdminsPage />,

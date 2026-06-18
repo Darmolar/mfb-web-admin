@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
 import { getKycPending, getKycStats, approveKyc, rejectKyc } from '../../api'
@@ -49,9 +50,48 @@ export function KYCReview() {
 
   const s = stats.data
 
+  const columns: ColumnDef<KycPendingItem>[] = [
+    {
+      header: 'Customer',
+      accessorKey: 'customerName',
+      cell: (app) => (
+        <>
+          <p className="text-sm font-semibold text-slate-700">{app.customerName}</p>
+          <p className="text-xs text-slate-400 font-mono">{app.id.slice(0, 8)}</p>
+        </>
+      ),
+    },
+    {
+      header: 'Current Tier',
+      accessorKey: 'currentTier',
+      cell: (app) => <span className="text-xs font-semibold text-slate-600">Tier {app.currentTier}</span>,
+    },
+    {
+      header: 'Requested Tier',
+      accessorKey: 'requestedTier',
+      cell: (app) => <span className="text-xs font-semibold text-slate-600">Tier {app.requestedTier}</span>,
+    },
+    {
+      header: 'Risk Level',
+      accessorKey: 'riskLevel',
+      cell: (app) => <Badge label={app.riskLevel} variant={statusBadge(app.riskLevel)} />,
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (app) => <Badge label={app.status} variant={statusBadge(app.status)} />,
+    },
+    {
+      header: 'Action',
+      sortable: false,
+      cell: (app) => (
+        <Button size="sm" onClick={() => { setSelected(app); setNotes(''); setActionError('') }}>Review</Button>
+      ),
+    },
+  ]
+
   return (
     <>
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Pending Review', value: stats.loading ? '…' : s?.pending ?? 0, color: 'text-amber-600 bg-amber-50' },
@@ -66,7 +106,6 @@ export function KYCReview() {
         ))}
       </div>
 
-      {/* Risk filter */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-4 w-fit">
         {['', 'HIGH', 'MEDIUM', 'LOW'].map(f => (
           <button
@@ -79,53 +118,18 @@ export function KYCReview() {
         ))}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100">
-              {['Customer', 'Current Tier', 'Requested Tier', 'Risk Level', 'Status', 'Action'].map(h => (
-                <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pending.loading ? (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">Loading…</td></tr>
-            ) : pending.error ? (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-red-500">{pending.error}</td></tr>
-            ) : (pending.data?.content ?? []).length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">No pending KYC applications.</td></tr>
-            ) : (
-              (pending.data?.content ?? []).map(app => (
-                <tr key={app.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-semibold text-slate-700">{app.customerName}</p>
-                    <p className="text-xs text-slate-400 font-mono">{app.id.slice(0, 8)}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-semibold text-slate-600">Tier {app.currentTier}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-semibold text-slate-600">Tier {app.requestedTier}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge label={app.riskLevel} variant={statusBadge(app.riskLevel)} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge label={app.status} variant={statusBadge(app.status)} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <Button size="sm" onClick={() => { setSelected(app); setNotes(''); setActionError('') }}>Review</Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {pending.loading && <div className="px-6 py-12 text-center text-sm text-slate-400">Loading…</div>}
+      {pending.error && <div className="px-6 py-12 text-center text-sm text-red-500">{pending.error}</div>}
 
-      {/* Review modal */}
+      {!pending.loading && !pending.error && (
+        <DataTable<KycPendingItem>
+          columns={columns}
+          data={pending.data?.content ?? []}
+          searchPlaceholder="Search KYC applications…"
+          emptyMessage="No pending KYC applications."
+        />
+      )}
+
       {selected && (
         <Modal open={!!selected} onClose={() => setSelected(null)} title="Review KYC Application">
           <div className="space-y-5">

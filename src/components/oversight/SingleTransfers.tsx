@@ -3,6 +3,7 @@ import { Download, AlertTriangle, Loader2 } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { getTransactions } from '../../api'
 import type { TransactionItem } from '../../api/types'
@@ -46,6 +47,46 @@ export function SingleTransfers() {
     )
   }
 
+  const columns: ColumnDef<TransactionItem>[] = [
+    {
+      header: 'Reference',
+      accessorKey: 'transactionReference',
+      cell: (tx) => <span className="text-xs font-mono text-slate-500">{tx.transactionReference}</span>,
+    },
+    {
+      header: 'Beneficiary',
+      accessorKey: 'beneficiaryName',
+      cell: (tx) => <span className="text-xs text-slate-700 font-semibold">{tx.beneficiaryName ?? '—'}</span>,
+    },
+    {
+      header: 'Amount',
+      accessorKey: 'amount',
+      cell: (tx) => <span className="text-sm font-bold text-slate-700">{fmt(tx.amount)}</span>,
+    },
+    {
+      header: 'Channel',
+      accessorKey: 'channel',
+      cell: (tx) => <span className="text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</span>,
+    },
+    {
+      header: 'Date',
+      accessorKey: 'createdAt',
+      cell: (tx) => <span className="text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</span>,
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (tx) => <Badge label={tx.status} variant={statusBadge(tx.status)} />,
+    },
+    {
+      header: 'Action',
+      sortable: false,
+      cell: (tx) => (
+        <Button size="sm" variant="secondary" onClick={() => setSelected(tx)}>View Details</Button>
+      ),
+    },
+  ]
+
   return (
     <>
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -62,36 +103,13 @@ export function SingleTransfers() {
         <Button variant="secondary" size="sm"><Download size={13} /> Generate PDF</Button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        {txs.length === 0 ? (
-          <div className="px-6 py-12 text-center text-sm text-slate-400">No transfer transactions found.</div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                {['Reference', 'Beneficiary', 'Amount', 'Channel', 'Date', 'Status', 'Action'].map(h => (
-                  <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {txs.map(tx => (
-                <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.transactionReference}</td>
-                  <td className="px-6 py-4 text-xs text-slate-700 font-semibold">{tx.beneficiaryName ?? '—'}</td>
-                  <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                  <td className="px-6 py-4 text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
-                  <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
-                  <td className="px-6 py-4">
-                    <Button size="sm" variant="secondary" onClick={() => setSelected(tx)}>View Details</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <DataTable<TransactionItem>
+        columns={columns}
+        data={txs}
+        searchPlaceholder="Search transfers…"
+        searchFields={['transactionReference', 'beneficiaryName', 'status']}
+        emptyMessage="No transfer transactions found."
+      />
 
       {selected && (
         <Modal open={!!selected} onClose={() => setSelected(null)} title="Transfer Details">

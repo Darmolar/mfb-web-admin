@@ -1,14 +1,20 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
-  ScrollText, Scale, Settings, LogOut, ShieldAlert, UserCog
+  ScrollText, Scale, Settings, LogOut, ShieldAlert, UserCog,
+  AlertTriangle, Landmark, PiggyBank, ServerCog, Database
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
-export type SectionId = 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight' | 'activity' | 'governance' | 'admins' | 'settings'
+export type SectionId =
+  | 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight'
+  | 'compliance' | 'loans' | 'savings' | 'queue' | 'reference'
+  | 'activity' | 'governance' | 'admins' | 'settings'
 
 export const SECTION_IDS: SectionId[] = [
-  'overview', 'kyc', 'customers', 'corporate', 'oversight', 'activity', 'governance', 'admins', 'settings',
+  'overview', 'kyc', 'customers', 'corporate', 'oversight',
+  'compliance', 'loans', 'savings', 'queue', 'reference',
+  'activity', 'governance', 'admins', 'settings',
 ]
 
 interface NavItem {
@@ -23,6 +29,11 @@ const navItems: NavItem[] = [
   { id: 'customers', label: 'Customers', icon: <Users size={18} /> },
   { id: 'corporate', label: 'Corporate Banking', icon: <Building2 size={18} /> },
   { id: 'oversight', label: 'Transaction Oversight', icon: <ArrowLeftRight size={18} /> },
+  { id: 'compliance', label: 'Compliance Flags', icon: <AlertTriangle size={18} /> },
+  { id: 'loans', label: 'Loan Management', icon: <Landmark size={18} /> },
+  { id: 'savings', label: 'Savings Management', icon: <PiggyBank size={18} /> },
+  { id: 'queue', label: 'Job Queue', icon: <ServerCog size={18} /> },
+  { id: 'reference', label: 'Reference Data', icon: <Database size={18} /> },
   { id: 'activity', label: 'Activity Logs', icon: <ScrollText size={18} /> },
   { id: 'governance', label: 'Governance', icon: <Scale size={18} /> },
   { id: 'admins', label: 'Admin Management', icon: <UserCog size={18} /> },

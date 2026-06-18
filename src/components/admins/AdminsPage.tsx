@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { SearchInput } from '../ui/SearchInput'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import {
   getAdminUsers, createAdminUser, updateAdminUser,
@@ -50,22 +50,16 @@ function statusVariant(status: string) {
 export function AdminsPage() {
   const { user } = useAuth()
   const [statusFilter, setStatusFilter] = useState('ALL')
-  const [search, setSearch] = useState('')
 
   const { data, loading, error, refetch } = useApi(
-    () => getAdminUsers(statusFilter !== 'ALL' ? { status: statusFilter } : {}).then(r => r.data),
+    () => getAdminUsers(statusFilter !== 'ALL' ? { status: statusFilter, size: 100 } : { size: 100 }).then(r => r.data),
     [statusFilter],
   )
 
   const admins: AdminUser[] = data?.content ?? []
-  const filtered = admins.filter(a =>
-    !search ||
-    a.name.toLowerCase().includes(search.toLowerCase()) ||
-    a.email.toLowerCase().includes(search.toLowerCase()) ||
-    adminCode(a.id).toLowerCase().includes(search.toLowerCase())
-  )
 
-  // ── Create ──────────────────────────────────────
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState(EMPTY_CREATE)
   const [creating, setCreating] = useState(false)
@@ -87,7 +81,6 @@ export function AdminsPage() {
     }
   }
 
-  // ── Edit ────────────────────────────────────────
   const [editTarget, setEditTarget] = useState<AdminUser | null>(null)
   const [editForm, setEditForm] = useState(EMPTY_EDIT)
   const [editing, setEditing] = useState(false)
@@ -115,9 +108,6 @@ export function AdminsPage() {
     }
   }
 
-  // ── Status toggle ────────────────────────────────
-  const [togglingId, setTogglingId] = useState<string | null>(null)
-
   async function handleToggleStatus(admin: AdminUser) {
     if (!user) return
     const next = admin.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
@@ -130,7 +120,6 @@ export function AdminsPage() {
     }
   }
 
-  // ── Delete ───────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -150,24 +139,116 @@ export function AdminsPage() {
     }
   }
 
+  const columns: ColumnDef<AdminUser>[] = [
+    {
+      header: 'Admin',
+      accessorKey: 'name',
+      cell: (admin) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-slate-700 flex items-center justify-center flex-shrink-0">
+            <span className="text-[11px] font-black text-white">{admin.name.charAt(0)}</span>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-700">{admin.name}</p>
+            <p className="text-[11px] text-slate-400">{admin.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Code',
+      accessorKey: 'id',
+      cell: (admin) => (
+        <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+          {adminCode(admin.id)}
+        </span>
+      ),
+    },
+    {
+      header: 'Role',
+      accessorKey: 'role',
+      cell: (admin) => <span className="text-xs text-slate-600 font-medium">{admin.role.replace(/_/g, ' ')}</span>,
+    },
+    {
+      header: 'Department',
+      accessorKey: 'department',
+      cell: (admin) => <span className="text-xs text-slate-500">{admin.department}</span>,
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (admin) => <Badge label={admin.status} variant={statusVariant(admin.status)} />,
+    },
+    {
+      header: 'MFA',
+      accessorKey: 'mfaEnabled',
+      cell: (admin) => admin.mfaEnabled
+        ? <span className="text-emerald-500"><ShieldCheck size={15} /></span>
+        : <span className="text-slate-300"><ShieldOff size={15} /></span>,
+    },
+    {
+      header: 'Created',
+      accessorKey: 'createdAt',
+      cell: (admin) => (
+        <span className="text-xs text-slate-400">
+          {new Date(admin.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+        </span>
+      ),
+    },
+    {
+      header: 'Actions',
+      sortable: false,
+      cell: (admin) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => openEdit(admin)}
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+            title="Edit"
+          >
+            <Pencil size={13} />
+          </button>
+          <button
+            onClick={() => handleToggleStatus(admin)}
+            disabled={togglingId === admin.id}
+            className={`w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
+              admin.status === 'ACTIVE'
+                ? 'hover:bg-amber-50 text-slate-400 hover:text-amber-500'
+                : 'hover:bg-emerald-50 text-slate-400 hover:text-emerald-500'
+            } disabled:opacity-40`}
+            title={admin.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+          >
+            {admin.status === 'ACTIVE' ? <ShieldOff size={13} /> : <ShieldCheck size={13} />}
+          </button>
+          <button
+            onClick={() => { setDeleteTarget(admin); setDeleteError(null) }}
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 cursor-pointer"
+            title="Delete"
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <>
       <div className="space-y-5">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-600">Admin Directory</h3>
             <p className="text-xs text-slate-400 mt-0.5">Manage super-admin portal users and their access roles.</p>
           </div>
           <div className="flex items-center gap-3">
-            <SearchInput value={search} onChange={setSearch} placeholder="Search admins or code…" />
+            <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer" title="Refresh">
+              <RefreshCw size={13} />
+            </button>
             <Button size="sm" onClick={() => { setShowCreate(true); setCreateError(null); setCreateForm(EMPTY_CREATE) }}>
               <Plus size={13} /> New Admin
             </Button>
           </div>
         </div>
 
-        {/* Status filter tabs */}
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
           {STATUS_FILTERS.map(f => (
             <button
@@ -182,114 +263,25 @@ export function AdminsPage() {
           ))}
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ADMIN USERS</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">{filtered.length} admins</span>
-              <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer" title="Refresh">
-                <RefreshCw size={13} />
-              </button>
-            </div>
+        {loading && <div className="px-6 py-12 text-center text-xs text-slate-400">Loading admins…</div>}
+        {error && (
+          <div className="px-6 py-10 text-center">
+            <p className="text-xs text-red-500 mb-3">{error}</p>
+            <Button size="sm" variant="secondary" onClick={refetch}>Retry</Button>
           </div>
+        )}
 
-          {loading && (
-            <div className="px-6 py-12 text-center text-xs text-slate-400">Loading admins…</div>
-          )}
-
-          {error && (
-            <div className="px-6 py-10 text-center">
-              <p className="text-xs text-red-500 mb-3">{error}</p>
-              <Button size="sm" variant="secondary" onClick={refetch}>Retry</Button>
-            </div>
-          )}
-
-          {!loading && !error && (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  {['Admin', 'Code', 'Role', 'Department', 'Status', 'MFA', 'Created', 'Actions'].map(h => (
-                    <th key={h} className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-xs text-slate-400">No admins found.</td>
-                  </tr>
-                )}
-                {filtered.map(admin => (
-                  <tr key={admin.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-slate-700 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[11px] font-black text-white">{admin.name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700">{admin.name}</p>
-                          <p className="text-[11px] text-slate-400">{admin.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                        {adminCode(admin.id)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-600 font-medium">{admin.role.replace(/_/g, ' ')}</td>
-                    <td className="px-5 py-4 text-xs text-slate-500">{admin.department}</td>
-                    <td className="px-5 py-4">
-                      <Badge label={admin.status} variant={statusVariant(admin.status)} />
-                    </td>
-                    <td className="px-5 py-4">
-                      {admin.mfaEnabled
-                        ? <span className="text-emerald-500"><ShieldCheck size={15} /></span>
-                        : <span className="text-slate-300"><ShieldOff size={15} /></span>}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-400">
-                      {new Date(admin.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openEdit(admin)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(admin)}
-                          disabled={togglingId === admin.id}
-                          className={`w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
-                            admin.status === 'ACTIVE'
-                              ? 'hover:bg-amber-50 text-slate-400 hover:text-amber-500'
-                              : 'hover:bg-emerald-50 text-slate-400 hover:text-emerald-500'
-                          } disabled:opacity-40`}
-                          title={admin.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
-                        >
-                          {admin.status === 'ACTIVE' ? <ShieldOff size={13} /> : <ShieldCheck size={13} />}
-                        </button>
-                        <button
-                          onClick={() => { setDeleteTarget(admin); setDeleteError(null) }}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {!loading && !error && (
+          <DataTable<AdminUser>
+            columns={columns}
+            data={admins}
+            searchPlaceholder="Search admins…"
+            searchFields={['name', 'email', 'role', 'department']}
+            emptyMessage="No admins found."
+          />
+        )}
       </div>
 
-      {/* ── Create Admin Modal ── */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Admin User" width="max-w-lg">
         <form onSubmit={handleCreate} className="space-y-4">
           <AdminField label="Full Name" required>
@@ -321,7 +313,6 @@ export function AdminsPage() {
         </form>
       </Modal>
 
-      {/* ── Edit Admin Modal ── */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Admin User" width="max-w-lg">
         {editTarget && (
           <form onSubmit={handleEdit} className="space-y-4">
@@ -358,7 +349,6 @@ export function AdminsPage() {
         )}
       </Modal>
 
-      {/* ── Delete Confirmation Modal ── */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Remove Admin User" width="max-w-sm">
         {deleteTarget && (
           <div className="space-y-4">

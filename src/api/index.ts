@@ -3,8 +3,10 @@ import type {
   Role,
   Permission,
   SavingsProduct,
+  SavingsProductPayload,
   SavingsGoal,
   LoanProduct,
+  LoanProductPayload,
   LoanApplication,
   ReferenceCountry,
   ReferenceState,
@@ -488,8 +490,44 @@ export function getPermissions() {
 export function getSavingsProducts() {
   return request<PaginatedData<SavingsProduct>>('/v1/bank-admin/savings/products')
 }
+export function createSavingsProduct(payload: SavingsProductPayload) {
+  return request<SavingsProduct>('/v1/bank-admin/savings/products', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+export function updateSavingsProduct(productId: string, payload: SavingsProductPayload) {
+  return request<SavingsProduct>(`/v1/bank-admin/savings/products/${productId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+export function activateSavingsProduct(productId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/savings/products/${productId}/activate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
+}
+export function deactivateSavingsProduct(productId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/savings/products/${productId}/deactivate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
+}
 export function getSavingsGoals() {
   return request<PaginatedData<SavingsGoal>>('/v1/bank-admin/savings/goals')
+}
+export function suspendSavingsGoal(goalId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/savings/goals/${goalId}/suspend`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
+}
+export function reactivateSavingsGoal(goalId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/savings/goals/${goalId}/reactivate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
 }
 
 // ──────────────────────────────────────────────
@@ -498,13 +536,50 @@ export function getSavingsGoals() {
 export function getLoanProducts() {
   return request<PaginatedData<LoanProduct>>('/v1/bank-admin/loans/products')
 }
-export function getLoanApplications() {
-  return request<PaginatedData<LoanApplication>>('/v1/bank-admin/loans/applications')
+export function createLoanProduct(payload: LoanProductPayload) {
+  return request<LoanProduct>('/v1/bank-admin/loans/products', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
-export function approveLoanApplication(applicationId: string, adminId: string) {
+export function updateLoanProduct(productId: string, payload: LoanProductPayload) {
+  return request<LoanProduct>(`/v1/bank-admin/loans/products/${productId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+export function activateLoanProduct(productId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/products/${productId}/activate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
+}
+export function deactivateLoanProduct(productId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/products/${productId}/deactivate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  })
+}
+export function getLoanApplications(params: { status?: string; page?: number; size?: number } = {}) {
+  const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 20 })
+  return request<PaginatedData<LoanApplication>>(`/v1/bank-admin/loans/applications${qs}`)
+}
+export function approveLoanApplication(applicationId: string, payload: { adminId: string; approvedAmount: number; notes: string }) {
   return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ adminId })
+    body: JSON.stringify(payload),
+  })
+}
+export function declineLoanApplication(applicationId: string, payload: { adminId: string; declineReason: string; notes: string }) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/decline`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+export function disburseLoan(applicationId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/disburse`, {
+    method: 'POST',
+    body: JSON.stringify({ adminId }),
   })
 }
 

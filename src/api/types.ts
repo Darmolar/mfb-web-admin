@@ -596,19 +596,58 @@ export type Permission = {
 // ──────────────────────────────────────────────
 export type SavingsProduct = {
   id: string
+  code: string
   name: string
-  interestRate: number
-  minimumBalance: number
+  description?: string
+  interestRate?: number
+  annualRatePercent?: number
+  minimumBalance?: number
+  minAmount?: number
+  maxAmount?: number
+  minDurationDays?: number
+  maxDurationDays?: number
+  active?: boolean
   status: string
   createdAt: string
 }
 
+export type SavingsProductPayload = {
+  code: string
+  name: string
+  description: string
+  minAmount: number
+  maxAmount: number
+  annualRatePercent: number
+  minDurationDays: number
+  maxDurationDays: number
+  active: boolean
+  adminId: string
+}
+
 export type SavingsGoal = {
   id: string
-  customerId: string
-  name: string
+  customerId?: string
+  customerName?: string
+  name?: string
+  goalName?: string
+  category?: string
   targetAmount: number
-  currentAmount: number
+  currentAmount?: number
+  currentBalance?: number
+  interestRate?: number
+  durationDays?: number
+  maturityDate?: string
+  coreAccountNumber?: string
+  productCode?: string
+  customer?: {
+    id: string
+    firstName?: string
+    lastName?: string
+    username?: string
+    accountNumber?: string
+    email?: string
+    phoneNumber?: string
+  }
   status: string
   createdAt: string
 }
@@ -618,20 +657,68 @@ export type SavingsGoal = {
 // ──────────────────────────────────────────────
 export type LoanProduct = {
   id: string
+  code?: string
   name: string
-  interestRate: number
+  description?: string
+  interestRate?: number
+  monthlyRatePercent?: number
+  minAmount?: number
   maxAmount: number
+  minTenureMonths?: number
+  maxTenureMonths?: number
+  active?: boolean
   status: string
   createdAt: string
 }
 
+export type LoanProductPayload = {
+  code: string
+  name: string
+  description: string
+  minAmount: number
+  maxAmount: number
+  monthlyRatePercent: number
+  minTenureMonths: number
+  maxTenureMonths: number
+  maxPreApprovedAmount: number
+  minMonthlyIncome: number
+  minAnnualIncome: number
+  minAccountAgeDays: number
+  adminId: string
+}
+
 export type LoanApplication = {
   id: string
-  customerId: string
-  productId: string
-  amount: number
+  customerId?: string
+  customerName?: string
+  productId?: string
+  productCode?: string
+  loanProductCode?: string
+  requestedAmount: number
+  approvedAmount?: number
+  amount?: number
+  monthlyIncome?: number
+  annualIncome?: number
+  tenureMonths?: number
+  interestRate?: number
+  totalRepayment?: number
+  employmentType?: string
+  occupation?: string
+  sourceOfFunds?: string
+  educationLevel?: string
+  email?: string
+  customer?: {
+    id: string
+    firstName?: string
+    lastName?: string
+    username?: string
+    accountNumber?: string
+  }
   status: string
-  appliedAt: string
+  appliedAt?: string
+  createdAt?: string
+  declineReason?: string
+  notes?: string
 }
 
 // ──────────────────────────────────────────────

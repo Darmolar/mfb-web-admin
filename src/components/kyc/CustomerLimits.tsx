@@ -1,7 +1,9 @@
 import { Clock, Loader2 } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { getLimitOverrides } from '../../api'
+import type { LimitOverrideItem } from '../../api/types'
 
 function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
@@ -13,6 +15,39 @@ export function CustomerLimits() {
 
   const overrides = data?.content ?? []
   const active = overrides.filter(o => o.status === 'Active' || o.status === 'ACTIVE')
+
+  const columns: ColumnDef<LimitOverrideItem>[] = [
+    {
+      header: 'Customer',
+      accessorKey: 'customerName',
+      cell: (o) => <span className="text-sm font-semibold text-slate-700">{o.customerName}</span>,
+    },
+    {
+      header: 'Type',
+      accessorKey: 'type',
+      cell: (o) => <span className="text-xs text-slate-500">{o.type}</span>,
+    },
+    {
+      header: 'Limit',
+      accessorKey: 'limit',
+      cell: (o) => <span className="text-sm font-bold text-slate-700">{fmt(o.limit)}</span>,
+    },
+    {
+      header: 'Expires',
+      accessorKey: 'expiresAt',
+      cell: (o) => <span className="text-xs text-slate-400">{o.expiresAt ?? '—'}</span>,
+    },
+    {
+      header: 'Set By',
+      accessorKey: 'setBy',
+      cell: (o) => <span className="text-xs text-slate-400">{o.setBy}</span>,
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: (o) => <Badge label={o.status} variant={statusBadge(o.status)} />,
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -40,31 +75,14 @@ export function CustomerLimits() {
             <div className="px-6 py-4 border-b border-slate-100">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Global Overrides</h4>
             </div>
-            {overrides.length === 0 ? (
-              <div className="px-6 py-10 text-center text-sm text-slate-400">No limit overrides found.</div>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    {['Customer', 'Type', 'Limit', 'Expires', 'Set By', 'Status'].map(h => (
-                      <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {overrides.map(o => (
-                    <tr key={o.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-700">{o.customerName}</td>
-                      <td className="px-6 py-4 text-xs text-slate-500">{o.type}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(o.limit)}</td>
-                      <td className="px-6 py-4 text-xs text-slate-400">{o.expiresAt ?? '—'}</td>
-                      <td className="px-6 py-4 text-xs text-slate-400">{o.setBy}</td>
-                      <td className="px-6 py-4"><Badge label={o.status} variant={statusBadge(o.status)} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div className="px-6 py-4">
+              <DataTable<LimitOverrideItem>
+                columns={columns}
+                data={overrides}
+                searchPlaceholder="Search overrides…"
+                emptyMessage="No limit overrides found."
+              />
+            </div>
           </div>
 
           {active.length > 0 && (

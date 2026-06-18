@@ -2,6 +2,8 @@ import { AlertTriangle, TrendingUp, TrendingDown, ArrowLeftRight, Loader2 } from
 import { useApi } from '../../hooks/useApi'
 import { getTransactions } from '../../api'
 import { Badge, statusBadge } from '../ui/Badge'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
+import type { TransactionItem } from '../../api/types'
 import moment from 'moment'
 
 function fmt(n: number) {
@@ -184,27 +186,45 @@ export function TransactionOverview() {
             <h3 className="text-xs font-bold text-red-600 uppercase tracking-widest">Flagged Transactions</h3>
             <span className="ml-auto bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">{flagged.length}</span>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-100">
-                {['Reference', 'Type', 'Amount', 'Channel', 'Date', 'Status'].map(h => (
-                  <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {flagged.map(tx => (
-                <tr key={tx.id} className="border-b border-slate-50 bg-red-50/30">
-                  <td className="px-6 py-3 text-xs font-mono text-slate-500">{tx.transactionReference}</td>
-                  <td className="px-6 py-3 text-xs text-slate-600">{tx.transferType?.replace(/_/g, ' ')}</td>
-                  <td className="px-6 py-3 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                  <td className="px-6 py-3 text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</td>
-                  <td className="px-6 py-3 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
-                  <td className="px-6 py-3"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="px-6 py-4">
+            <DataTable<TransactionItem>
+              columns={[
+                {
+                  header: 'Reference',
+                  accessorKey: 'transactionReference',
+                  cell: (tx) => <span className="text-xs font-mono text-slate-500">{tx.transactionReference}</span>,
+                },
+                {
+                  header: 'Type',
+                  accessorKey: 'transferType',
+                  cell: (tx) => <span className="text-xs text-slate-600">{tx.transferType?.replace(/_/g, ' ')}</span>,
+                },
+                {
+                  header: 'Amount',
+                  accessorKey: 'amount',
+                  cell: (tx) => <span className="text-sm font-bold text-slate-700">{fmt(tx.amount)}</span>,
+                },
+                {
+                  header: 'Channel',
+                  accessorKey: 'channel',
+                  cell: (tx) => <span className="text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</span>,
+                },
+                {
+                  header: 'Date',
+                  accessorKey: 'createdAt',
+                  cell: (tx) => <span className="text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</span>,
+                },
+                {
+                  header: 'Status',
+                  accessorKey: 'status',
+                  cell: (tx) => <Badge label={tx.status} variant={statusBadge(tx.status)} />,
+                },
+              ] as ColumnDef<TransactionItem>[]}
+              data={flagged}
+              searchable={false}
+              emptyMessage="No flagged transactions."
+            />
+          </div>
         </div>
       )}
     </div>

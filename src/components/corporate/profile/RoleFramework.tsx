@@ -1,4 +1,12 @@
-const roles = [
+import { DataTable, type ColumnDef } from '../../ui/DataTable'
+
+type RoleRow = {
+  name: string
+  authority: { initiate: boolean; approve: boolean; modify: boolean; global: boolean }
+  count: number
+}
+
+const roles: RoleRow[] = [
   {
     name: 'Finance Director', authority: { initiate: true, approve: true, modify: true, global: true },
     count: 1,
@@ -25,32 +33,51 @@ function Checkbox({ checked }: { checked: boolean }) {
   )
 }
 
+const columns: ColumnDef<RoleRow>[] = [
+  {
+    header: 'Role Profile',
+    accessorKey: 'name',
+    cell: (r) => <span className="text-sm font-semibold text-slate-700">{r.name}</span>,
+  },
+  {
+    header: 'Count',
+    accessorKey: 'count',
+    cell: (r) => <span className="text-sm text-slate-500">{r.count}</span>,
+  },
+  {
+    header: 'Initiate',
+    sortable: false,
+    cell: (r) => <Checkbox checked={r.authority.initiate} />,
+  },
+  {
+    header: 'Approve',
+    sortable: false,
+    cell: (r) => <Checkbox checked={r.authority.approve} />,
+  },
+  {
+    header: 'Modify',
+    sortable: false,
+    cell: (r) => <Checkbox checked={r.authority.modify} />,
+  },
+  {
+    header: 'Global Framework',
+    sortable: false,
+    cell: (r) => <Checkbox checked={r.authority.global} />,
+  },
+]
+
 export function RoleFramework() {
   return (
     <div>
       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Role Management Framework</h4>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100">
-              {['Role Profile', 'Count', 'Initiate', 'Approve', 'Modify', 'Global Framework'].map(h => (
-                <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {roles.map(r => (
-              <tr key={r.name} className="border-b border-slate-50 hover:bg-slate-50/50">
-                <td className="px-6 py-4 text-sm font-semibold text-slate-700">{r.name}</td>
-                <td className="px-6 py-4 text-sm text-slate-500">{r.count}</td>
-                <td className="px-6 py-4"><Checkbox checked={r.authority.initiate} /></td>
-                <td className="px-6 py-4"><Checkbox checked={r.authority.approve} /></td>
-                <td className="px-6 py-4"><Checkbox checked={r.authority.modify} /></td>
-                <td className="px-6 py-4"><Checkbox checked={r.authority.global} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="px-6 py-4">
+          <DataTable<RoleRow>
+            columns={columns}
+            data={roles}
+            searchable={false}
+          />
+        </div>
       </div>
     </div>
   )
