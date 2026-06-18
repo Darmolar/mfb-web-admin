@@ -43,23 +43,19 @@ function TabContent({ tab }: { tab: TabId }) {
 
   if (tab === 'countries') {
     if (countries.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    if (countries.error) return <div className="py-12 text-center text-sm text-red-500">{countries.error}</div>
-    return <DataTable<ReferenceCountry> columns={countryColumns} data={countries.data?.content ?? []} searchPlaceholder="Search countries…" emptyMessage="No countries found." />
+    return <><DataTable<ReferenceCountry> columns={countryColumns} data={countries.data?.content ?? []} searchPlaceholder="Search countries…" emptyMessage="No countries available." /></>
   }
   if (tab === 'states') {
     if (states.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    if (states.error) return <div className="py-12 text-center text-sm text-red-500">{states.error}</div>
-    return <DataTable<ReferenceState> columns={stateColumns} data={states.data?.content ?? []} searchPlaceholder="Search states…" emptyMessage="No states found." />
+    return <><DataTable<ReferenceState> columns={stateColumns} data={states.data?.content ?? []} searchPlaceholder="Search states…" emptyMessage="No states available." /></>
   }
   if (tab === 'towns') {
     if (towns.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    if (towns.error) return <div className="py-12 text-center text-sm text-red-500">{towns.error}</div>
-    return <DataTable<ReferenceTown> columns={townColumns} data={towns.data?.content ?? []} searchPlaceholder="Search towns…" emptyMessage="No towns found." />
+    return <><DataTable<ReferenceTown> columns={townColumns} data={towns.data?.content ?? []} searchPlaceholder="Search towns…" emptyMessage="No towns available." /></>
   }
   if (tab === 'sectors') {
     if (sectors.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    if (sectors.error) return <div className="py-12 text-center text-sm text-red-500">{sectors.error}</div>
-    return <DataTable<ReferenceSector> columns={sectorColumns} data={sectors.data?.content ?? []} searchPlaceholder="Search sectors…" emptyMessage="No sectors found." />
+    return <><DataTable<ReferenceSector> columns={sectorColumns} data={sectors.data?.content ?? []} searchPlaceholder="Search sectors…" emptyMessage="No sectors available." /></>
   }
   return null
 }
@@ -75,7 +71,7 @@ export function ReferencePage() {
       </div>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        {TABS.map(t => (
+        {TABS?.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
