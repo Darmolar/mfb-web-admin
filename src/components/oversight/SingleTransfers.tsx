@@ -6,8 +6,9 @@ import { Modal } from '../ui/Modal'
 import { useApi } from '../../hooks/useApi'
 import { getTransactions } from '../../api'
 import type { TransactionItem } from '../../api/types'
+import moment from 'moment'
 
-function fmt(n: number) { return `₦${n.toLocaleString()}` }
+function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function SingleTransfers() {
   const [selected, setSelected] = useState<TransactionItem | null>(null)
@@ -17,7 +18,7 @@ export function SingleTransfers() {
     [],
   )
 
-  const txs = (data?.content ?? []).filter(t => t.type === 'Transfer' || t.type === 'TRANSFER')
+  const txs = (data?.content ?? []).filter(t => t.transferType === 'TO_OTHER_BANK' || t.transferType === 'INTERNAL_TRANSFER' || t.transferType === 'TRANSFER')
 
   const pendingCount = txs.filter(t => t.status === 'Pending' || t.status === 'PENDING').length
   const failedCount  = txs.filter(t => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED').length
@@ -76,11 +77,11 @@ export function SingleTransfers() {
             <tbody>
               {txs.map(tx => (
                 <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.reference}</td>
-                  <td className="px-6 py-4 text-xs text-slate-700 font-semibold">{tx.beneficiary ?? '—'}</td>
+                  <td className="px-6 py-4 text-xs font-mono text-slate-500">{tx.transactionReference}</td>
+                  <td className="px-6 py-4 text-xs text-slate-700 font-semibold">{tx.beneficiaryName ?? '—'}</td>
                   <td className="px-6 py-4 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                  <td className="px-6 py-4 text-xs text-slate-500">{tx.channel}</td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt?.split('T')[0]}</td>
+                  <td className="px-6 py-4 text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
                   <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
                   <td className="px-6 py-4">
                     <Button size="sm" variant="secondary" onClick={() => setSelected(tx)}>View Details</Button>
@@ -104,15 +105,15 @@ export function SingleTransfers() {
 
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Reference',           value: selected.reference },
+                { label: 'Reference',           value: selected.transactionReference },
                 { label: 'Amount',              value: fmt(selected.amount) },
-                { label: 'Channel',             value: selected.channel },
-                { label: 'Date',                value: selected.createdAt?.split('T')[0] },
-                { label: 'Customer / Corporate', value: selected.customerId ?? selected.corporateId ?? '—' },
-                { label: 'Beneficiary',         value: selected.beneficiary ?? '—' },
-                { label: 'Beneficiary Account', value: selected.beneficiaryAccount ?? '—' },
+                { label: 'Channel',             value: selected.channel ?? 'MOBILE' },
+                { label: 'Date',                value: selected.createdAt ? moment(selected.createdAt).fromNow() : '' },
+                { label: 'Customer / Corporate', value: selected.customer?.id ?? '—' },
+                { label: 'Beneficiary',         value: selected.beneficiaryName ?? '—' },
+                { label: 'Beneficiary Account', value: selected.creditAccount ?? '—' },
                 { label: 'Fee',                 value: selected.fee != null ? fmt(selected.fee) : '—' },
-                { label: 'Description',         value: selected.description ?? '—' },
+                { label: 'Description',         value: selected.narration ?? '—' },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.label}</p>

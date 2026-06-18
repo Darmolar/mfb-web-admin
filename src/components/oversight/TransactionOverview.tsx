@@ -2,6 +2,7 @@ import { AlertTriangle, TrendingUp, TrendingDown, ArrowLeftRight, Loader2 } from
 import { useApi } from '../../hooks/useApi'
 import { getTransactions } from '../../api'
 import { Badge, statusBadge } from '../ui/Badge'
+import moment from 'moment'
 
 function fmt(n: number) {
   if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`
@@ -30,9 +31,9 @@ export function TransactionOverview() {
   const failed = txs.filter(t => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED')
   const flagged = txs.filter(t => t.flagged)
 
-  const channels = Array.from(new Set(txs.map(t => t.channel))).filter(Boolean)
+  const channels = Array.from(new Set(txs.map(t => t.channel ?? 'MOBILE'))).filter(Boolean) as string[]
   const channelData = channels.map(ch => {
-    const cTxs = txs.filter(t => t.channel === ch)
+    const cTxs = txs.filter(t => (t.channel ?? 'MOBILE') === ch)
     const vol = cTxs.reduce((s, t) => s + t.amount, 0)
     return { channel: ch, count: cTxs.length, volume: vol, pct: txs.length > 0 ? Math.round((cTxs.length / txs.length) * 100) : 0 }
   }).sort((a, b) => b.count - a.count)
@@ -194,11 +195,11 @@ export function TransactionOverview() {
             <tbody>
               {flagged.map(tx => (
                 <tr key={tx.id} className="border-b border-slate-50 bg-red-50/30">
-                  <td className="px-6 py-3 text-xs font-mono text-slate-500">{tx.reference}</td>
-                  <td className="px-6 py-3 text-xs text-slate-600">{tx.type}</td>
+                  <td className="px-6 py-3 text-xs font-mono text-slate-500">{tx.transactionReference}</td>
+                  <td className="px-6 py-3 text-xs text-slate-600">{tx.transferType?.replace(/_/g, ' ')}</td>
                   <td className="px-6 py-3 text-sm font-bold text-slate-700">{fmt(tx.amount)}</td>
-                  <td className="px-6 py-3 text-xs text-slate-500">{tx.channel}</td>
-                  <td className="px-6 py-3 text-xs text-slate-400">{tx.createdAt?.split('T')[0]}</td>
+                  <td className="px-6 py-3 text-xs text-slate-500">{tx.channel ?? 'MOBILE'}</td>
+                  <td className="px-6 py-3 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
                   <td className="px-6 py-3"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
                 </tr>
               ))}

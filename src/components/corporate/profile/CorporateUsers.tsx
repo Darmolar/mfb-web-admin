@@ -7,6 +7,7 @@ import { useApi } from '../../../hooks/useApi'
 import { useAuth } from '../../../context/AuthContext'
 import { getCorporateUsers, addCorporateUser, changeCorporateUserRole, updateCorporateUserStatus } from '../../../api'
 import type { CorporateUser } from '../../../api'
+import moment from 'moment'
 
 interface Props { corporateId: string }
 
@@ -107,7 +108,7 @@ export function CorporateUsers({ corporateId }: Props) {
                       {u.mfaEnabled ? 'ON' : 'OFF'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{u.lastLoginAt ? u.lastLoginAt.split('T')[0] : '—'}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{u.lastLoginAt ? moment(u.lastLoginAt).fromNow() : '—'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1">
                       <button onClick={() => { setEditTarget(u); setNewRole(u.role) }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer" title="Change role">

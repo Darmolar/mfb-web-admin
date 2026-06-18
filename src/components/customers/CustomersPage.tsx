@@ -35,11 +35,11 @@ export function CustomersPage() {
     ? items.filter(c => {
         const s = search.toLowerCase()
         return (
-          c.firstName?.toLowerCase().includes(s) ||
-          c.lastName?.toLowerCase().includes(s) ||
-          c.email?.toLowerCase().includes(s) ||
-          c.accountNumber?.includes(s) ||
-          c.phoneNumber?.includes(s)
+          (c.firstName?.toLowerCase()?.includes(s)) ||
+          (c.lastName?.toLowerCase()?.includes(s)) ||
+          (c.email?.toLowerCase()?.includes(s)) ||
+          (c.accountNumber?.includes(s)) ||
+          (c.phoneNumber?.includes(s))
         )
       })
     : items
@@ -106,7 +106,7 @@ export function CustomersPage() {
                   <td className="px-6 py-4 text-xs text-slate-500">{c.email}</td>
                   <td className="px-6 py-4 text-xs text-slate-500">{c.phoneNumber}</td>
                   <td className="px-6 py-4"><Badge label={c.status} variant={statusBadge(c.status)} /></td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{c.createdAt?.split('T')[0]}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{c.createdAt?.split('T')?.[0]}</td>
                   <td className="px-6 py-4"><ChevronRight size={16} className="text-slate-300" /></td>
                 </tr>
               ))

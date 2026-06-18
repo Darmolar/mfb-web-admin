@@ -21,6 +21,9 @@ const tabs = [
   { id: 'kyc', label: 'KYC Documents' },
 ]
 
+import { raiseComplianceFlag } from '../../../api'
+import moment from 'moment'
+
 interface Props {
   customerId: string
   onBack: () => void
@@ -50,6 +53,27 @@ export function CustomerProfile({ customerId, onBack }: Props) {
     } finally {
       setStatusLoading(false)
     }
+  }
+
+  const handleFlag = async () => {
+    if (!user) return
+    try {
+      await raiseComplianceFlag({
+        targetType: 'CUSTOMER',
+        targetId: customerId,
+        reason: 'Suspicious Activity',
+        details: 'Flagged by admin from profile view.',
+        severity: 'MEDIUM',
+        raisedBy: user.adminId
+      })
+      alert('Compliance flag raised successfully.')
+    } catch (e: any) {
+      alert('Failed to raise flag: ' + (e.message || 'Unknown error'))
+    }
+  }
+
+  const handleMessage = () => {
+    alert('Messaging endpoint is not currently supported by the backend.')
   }
 
   if (detail.loading) {
@@ -91,7 +115,7 @@ export function CustomerProfile({ customerId, onBack }: Props) {
                 <Badge label={c.status} variant={statusBadge(c.status)} size="md" />
               </div>
               <p className="text-xs text-slate-400">{c.email} · {c.phoneNumber}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Account: {c.accountNumber} · BVN: {c.bvn} · Since {c.createdAt?.split('T')[0]}</p>
+              <p className="text-xs text-slate-400 mt-0.5">Account: {c.accountNumber} · BVN: {c.bvn} · Since {c.createdAt ? moment(c.createdAt).fromNow() : ''}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -108,8 +132,8 @@ export function CustomerProfile({ customerId, onBack }: Props) {
                   : <><Unlock size={13} /> Unlock Account</>
               }
             </Button>
-            <Button variant="secondary" size="sm"><MessageSquare size={13} /> Message</Button>
-            <Button variant="secondary" size="sm"><Flag size={13} /> Flag</Button>
+            <Button variant="secondary" size="sm" onClick={handleMessage}><MessageSquare size={13} /> Message</Button>
+            <Button variant="secondary" size="sm" onClick={handleFlag}><Flag size={13} /> Flag</Button>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1.5">

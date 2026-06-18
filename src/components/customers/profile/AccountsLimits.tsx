@@ -2,10 +2,11 @@ import { Badge, statusBadge } from '../../ui/Badge'
 import { useApi } from '../../../hooks/useApi'
 import { getCustomerLimits } from '../../../api'
 import type { CustomerDetail } from '../../../api'
+import moment from 'moment'
 
 interface Props { customer: CustomerDetail }
 
-function fmt(n: number) { return `₦${n.toLocaleString()}` }
+function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function AccountsLimits({ customer }: Props) {
   const { data: limits, loading } = useApi(
@@ -34,7 +35,7 @@ export function AccountsLimits({ customer }: Props) {
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Onboarded</p>
-            <p className="text-sm text-slate-600">{customer.createdAt?.split('T')[0] ?? '—'}</p>
+            <p className="text-sm text-slate-600">{customer.createdAt ? moment(customer.createdAt).fromNow() : '—'}</p>
           </div>
         </div>
       </div>

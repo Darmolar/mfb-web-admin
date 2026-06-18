@@ -3,13 +3,15 @@ import { Download, Flag, AlertTriangle, Loader2 } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { DataTable } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { getAuditLogs } from '../../api'
 import type { AuditLogEntry } from '../../api/types'
+import moment from 'moment'
 
-function severityVariant(s: string): 'blue' | 'amber' | 'red' {
-  if (s === 'Warning' || s === 'WARN') return 'amber'
-  if (s === 'Critical' || s === 'ERROR') return 'red'
+function severityVariant(eventType: string): 'blue' | 'amber' | 'red' {
+  if (eventType.includes('FAILED') || eventType.includes('ERROR')) return 'red'
+  if (eventType.includes('SENT') || eventType.includes('REFRESHED')) return 'amber'
   return 'blue'
 }
 
@@ -58,51 +60,62 @@ export function ActivityLogsPage() {
         )}
 
         {!loading && !error && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            {logs.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-slate-400">No audit log entries found.</div>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    {['Admin / Actor', 'Action Executed', 'Context', 'Resource ID', 'Timestamp', 'Severity', ''].map(h => (
-                      <th key={h} className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map(log => (
-                    <tr
-                      key={log.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer"
-                      onClick={() => setSelected(log)}
-                    >
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-semibold text-slate-700">{log.actor}</p>
-                        <p className="text-[10px] text-slate-400">{log.actorRole}</p>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-mono text-slate-600 max-w-[180px] truncate">{log.action}</td>
-                      <td className="px-6 py-4 text-xs text-slate-500">{log.context}</td>
-                      <td className="px-6 py-4 text-xs font-mono text-slate-400">{log.resourceId}</td>
-                      <td className="px-6 py-4 text-xs text-slate-400">{log.timestamp?.split('T')[0]}</td>
-                      <td className="px-6 py-4">
-                        <Badge label={log.severity} variant={severityVariant(log.severity)} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          className="text-slate-300 hover:text-amber-500 cursor-pointer"
-                          onClick={e => e.stopPropagation()}
-                          title="Flag for revision"
-                        >
-                          <Flag size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <DataTable 
+            columns={[
+              {
+                header: 'Customer / Actor',
+                accessorKey: 'customerId',
+                cell: (log) => (
+                  <>
+                    <p className="text-xs font-semibold text-slate-700 max-w-[150px] truncate" title={log.customerId}>{log.customerId ?? 'System'}</p>
+                    <p className="text-[10px] text-slate-400">Customer ID</p>
+                  </>
+                )
+              },
+              {
+                header: 'Event Type',
+                accessorKey: 'eventType',
+                cell: (log) => <span className="font-mono text-slate-600 max-w-[180px] truncate">{log.eventType}</span>
+              },
+              {
+                header: 'Description',
+                accessorKey: 'description',
+                cell: (log) => <span className="text-slate-500 max-w-[200px] truncate" title={log.description}>{log.description}</span>
+              },
+              {
+                header: 'Account Number',
+                accessorKey: 'accountNumber',
+                cell: (log) => <span className="font-mono text-slate-400">{log.accountNumber ?? '—'}</span>
+              },
+              {
+                header: 'Timestamp',
+                accessorKey: 'createdAt',
+                cell: (log) => <span className="text-slate-400">{log.createdAt ? moment(log.createdAt).fromNow() : ''}</span>
+              },
+              {
+                header: 'Severity',
+                accessorKey: 'eventType',
+                cell: (log) => <Badge label={log.eventType.includes('FAILED') ? 'Critical' : 'Info'} variant={severityVariant(log.eventType)} />
+              },
+              {
+                header: '',
+                sortable: false,
+                cell: () => (
+                  <button
+                    className="text-slate-300 hover:text-amber-500 cursor-pointer"
+                    onClick={e => { e.stopPropagation(); /* modal logic can just use row click */ }}
+                    title="Flag for revision"
+                  >
+                    <Flag size={14} />
+                  </button>
+                )
+              }
+            ]}
+            data={logs}
+            searchFields={['customerId', 'eventType', 'description', 'accountNumber']}
+            onRowClick={setSelected}
+            emptyMessage="No audit log entries found."
+          />
         )}
       </div>
 
@@ -111,14 +124,14 @@ export function ActivityLogsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'Admin / Actor',     value: selected.actor },
-                { label: 'Actor Role',         value: selected.actorRole },
-                { label: 'Action Executed',    value: selected.action },
-                { label: 'Context',            value: selected.context },
-                { label: 'Resource ID',        value: selected.resourceId },
+                { label: 'Customer ID',        value: selected.customerId ?? 'System' },
+                { label: 'Event Type',         value: selected.eventType },
+                { label: 'Description',        value: selected.description },
+                { label: 'Account Number',     value: selected.accountNumber ?? '—' },
+                { label: 'Device ID',          value: selected.deviceId ?? '—' },
                 { label: 'IP Address',         value: selected.ipAddress ?? '—' },
-                { label: 'Timestamp',          value: selected.timestamp },
-                { label: 'Severity',           value: selected.severity },
+                { label: 'Timestamp',          value: selected.createdAt },
+                { label: 'Severity',           value: selected.eventType.includes('FAILED') ? 'Critical' : 'Info' },
               ].map(r => (
                 <div key={r.label}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.label}</p>
@@ -126,12 +139,6 @@ export function ActivityLogsPage() {
                 </div>
               ))}
             </div>
-            {selected.payload && (
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Event Payload</p>
-                <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{selected.payload}</p>
-              </div>
-            )}
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Event Lifecycle</p>
               <div className="flex items-center gap-2">

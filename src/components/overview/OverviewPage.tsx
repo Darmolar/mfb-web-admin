@@ -5,6 +5,7 @@ import { Badge, statusBadge } from '../ui/Badge'
 import { useApi } from '../../hooks/useApi'
 import { getKycStats, getKycPending, getComplianceStats, getTransactions } from '../../api'
 import type { KycStats, KycPendingItem, ComplianceStats, PaginatedData } from '../../api/types'
+import moment from 'moment'
 
 function fmt(n: number) {
   if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`
@@ -141,11 +142,11 @@ export function OverviewPage() {
             <p className="text-xs text-slate-400">No recent transactions.</p>
           ) : (
             <div className="space-y-3">
-              {(recentTx.data?.content ?? []).slice(0, 5).map((tx, i) => (
+              {(recentTx.data?.content ?? []).slice(0, 5).map((tx: any, i) => (
                 <div key={String(tx.id ?? i)} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">{String(tx.beneficiary ?? tx.description ?? '—')}</p>
-                    <p className="text-xs text-slate-400">{String(tx.type ?? '')} · {String(tx.channel ?? '')} · {String(tx.date ?? tx.createdAt ?? '')}</p>
+                    <p className="text-sm font-semibold text-slate-700">{String(tx.beneficiaryName ?? tx.narration ?? '—')}</p>
+                    <p className="text-xs text-slate-400">{String(tx.transferType?.replace(/_/g, ' ') ?? '')} · {String(tx.channel ?? 'MOBILE')} · {String(tx.createdAt ? moment(tx.createdAt).fromNow() : '')}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-slate-700">{typeof tx.amount === 'number' ? fmt(tx.amount) : '—'}</span>

@@ -3,7 +3,7 @@ import { Badge, statusBadge } from '../ui/Badge'
 import { useApi } from '../../hooks/useApi'
 import { getLimitOverrides } from '../../api'
 
-function fmt(n: number) { return `₦${n.toLocaleString()}` }
+function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function CustomerLimits() {
   const { data, loading, error, refetch } = useApi(

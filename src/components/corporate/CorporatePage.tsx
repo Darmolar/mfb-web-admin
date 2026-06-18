@@ -9,6 +9,7 @@ import { getCorporates, createCorporate } from '../../api'
 import type { CorporateListItem, CreateCorporateRequest } from '../../api'
 import { EntityProfile } from './profile/EntityProfile'
 import { useAuth } from '../../context/AuthContext'
+import moment from 'moment'
 
 const EMPTY_FORM: Omit<CreateCorporateRequest, 'adminId'> = {
   companyName: '', rcNumber: '', tin: '', sector: '', sectorCode: '',
@@ -116,7 +117,7 @@ export function CorporatePage() {
                     <td className="px-6 py-4 text-xs font-mono text-slate-500">{c.rcNumber}</td>
                     <td className="px-6 py-4 text-xs font-mono text-slate-500">{c.tin}</td>
                     <td className="px-6 py-4 text-xs font-mono text-slate-500">{c.primaryAccountNumber ?? '—'}</td>
-                    <td className="px-6 py-4 text-xs text-slate-400">{c.createdAt?.split('T')[0]}</td>
+                    <td className="px-6 py-4 text-xs text-slate-400">{c.createdAt ? moment(c.createdAt).fromNow() : ''}</td>
                     <td className="px-6 py-4"><ChevronRight size={16} className="text-slate-300" /></td>
                   </tr>
                 ))}

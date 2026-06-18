@@ -466,21 +466,21 @@ export type JobActionResponse = {
 
 export type TransactionItem = {
   id: string
-  reference: string
-  type: string
+  transactionReference: string
+  transferType: string
   amount: number
-  currency: string
-  channel: string
-  status: string
-  customerId?: string
-  corporateId?: string
-  beneficiary?: string
-  beneficiaryAccount?: string
   fee?: number
-  description?: string
+  narration?: string
+  status: string
+  createdAt: string
+  debitAccount?: string
+  creditAccount?: string
+  beneficiaryName?: string
+  bankName?: string
+  channel?: string
+  customer?: { id: string }
   failureReason?: string
   flagged?: boolean
-  createdAt: string
 }
 
 export type CorporateTransferItem = {
@@ -502,22 +502,23 @@ export type CorporateTransferItem = {
 
 export type CustomerDevice = {
   id: string
-  deviceName: string
-  deviceType: string
-  os?: string
-  lastUsed: string
-  trusted: boolean
-  ipAddress?: string
+  deviceUuid: string
+  deviceModel: string
+  osType: string
+  osVersion: string
+  lastLoginAt: string
+  lastLoginIp: string
+  active: boolean
 }
 
 export type LoginHistoryEntry = {
   id: string
-  timestamp: string
+  username: string
   ipAddress: string
-  geolocation: string
-  userAgent: string
-  status: string
-  mfaMethod: string
+  deviceUuid: string | null
+  success: boolean
+  failureReason: string | null
+  attemptedAt: string
 }
 
 // ──────────────────────────────────────────────
@@ -526,15 +527,13 @@ export type LoginHistoryEntry = {
 
 export type AuditLogEntry = {
   id: string
-  actor: string
-  actorRole: string
-  action: string
-  context: string
-  resourceId: string
-  payload?: string
+  customerId?: string
+  eventType: string
+  description: string
+  deviceId?: string | null
   ipAddress?: string
-  timestamp: string
-  severity: string
+  accountNumber?: string
+  createdAt: string
 }
 
 export type AuditLogListParams = {
@@ -572,4 +571,87 @@ export type LimitOverrideItem = {
   setBy: string
   expiresAt?: string
   createdAt: string
+}
+
+// ──────────────────────────────────────────────
+// Roles & Permissions
+// ──────────────────────────────────────────────
+export type Role = {
+  id: string
+  name: string
+  description?: string
+  permissions: string[]
+  createdAt: string
+  updatedAt?: string
+}
+
+export type Permission = {
+  id: string
+  name: string
+  description?: string
+}
+
+// ──────────────────────────────────────────────
+// Savings
+// ──────────────────────────────────────────────
+export type SavingsProduct = {
+  id: string
+  name: string
+  interestRate: number
+  minimumBalance: number
+  status: string
+  createdAt: string
+}
+
+export type SavingsGoal = {
+  id: string
+  customerId: string
+  name: string
+  targetAmount: number
+  currentAmount: number
+  status: string
+  createdAt: string
+}
+
+// ──────────────────────────────────────────────
+// Loans
+// ──────────────────────────────────────────────
+export type LoanProduct = {
+  id: string
+  name: string
+  interestRate: number
+  maxAmount: number
+  status: string
+  createdAt: string
+}
+
+export type LoanApplication = {
+  id: string
+  customerId: string
+  productId: string
+  amount: number
+  status: string
+  appliedAt: string
+}
+
+// ──────────────────────────────────────────────
+// Reference Data
+// ──────────────────────────────────────────────
+export type ReferenceCountry = {
+  code: string
+  name: string
+}
+export type ReferenceState = {
+  code: string
+  name: string
+  countryCode: string
+}
+export type ReferenceTown = {
+  code: string
+  name: string
+  stateCode: string
+}
+export type ReferenceSector = {
+  code: string
+  name: string
 }

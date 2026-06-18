@@ -3,12 +3,13 @@ import { Badge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { useApi } from '../../../hooks/useApi'
 import { getCorporateAuditTrail } from '../../../api'
+import moment from 'moment'
 
 interface Props { corporateId: string }
 
-function severityVariant(s: string) {
-  if (s === 'Critical' || s === 'CRITICAL') return 'red'
-  if (s === 'Warning' || s === 'WARNING') return 'amber'
+function severityVariant(eventType: string): 'blue' | 'amber' | 'red' {
+  if (eventType.includes('FAILED') || eventType.includes('ERROR')) return 'red'
+  if (eventType.includes('SENT') || eventType.includes('REFRESHED')) return 'amber'
   return 'blue'
 }
 
@@ -41,7 +42,7 @@ export function AuditTrail({ corporateId }: Props) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                {['Actor', 'Action Executed', 'Context', 'Resource ID', 'Timestamp', 'Severity'].map(h => (
+                {['Customer / Actor', 'Event Type', 'Description', 'Account Number', 'Timestamp', 'Severity'].map(h => (
                   <th key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">{h}</th>
                 ))}
               </tr>
@@ -50,14 +51,14 @@ export function AuditTrail({ corporateId }: Props) {
               {logs.map(log => (
                 <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-6 py-4">
-                    <p className="text-xs font-semibold text-slate-700">{log.actor}</p>
-                    <p className="text-[10px] text-slate-400">{log.actorRole}</p>
+                    <p className="text-xs font-semibold text-slate-700 max-w-[150px] truncate" title={log.customerId}>{log.customerId ?? 'System'}</p>
+                    <p className="text-[10px] text-slate-400">Customer ID</p>
                   </td>
-                  <td className="px-6 py-4 text-xs font-mono text-slate-600">{log.action}</td>
-                  <td className="px-6 py-4 text-xs text-slate-500">{log.context}</td>
-                  <td className="px-6 py-4 text-xs font-mono text-slate-400">{log.resourceId}</td>
-                  <td className="px-6 py-4 text-xs text-slate-400">{log.timestamp}</td>
-                  <td className="px-6 py-4"><Badge label={log.severity} variant={severityVariant(log.severity)} /></td>
+                  <td className="px-6 py-4 text-xs font-mono text-slate-600 max-w-[180px] truncate">{log.eventType}</td>
+                  <td className="px-6 py-4 text-xs text-slate-500 max-w-[200px] truncate" title={log.description}>{log.description}</td>
+                  <td className="px-6 py-4 text-xs font-mono text-slate-400">{log.accountNumber ?? '—'}</td>
+                  <td className="px-6 py-4 text-xs text-slate-400">{log.createdAt ? moment(log.createdAt).fromNow() : ''}</td>
+                  <td className="px-6 py-4"><Badge label={log.eventType.includes('FAILED') ? 'Critical' : 'Info'} variant={severityVariant(log.eventType)} /></td>
                 </tr>
               ))}
             </tbody>

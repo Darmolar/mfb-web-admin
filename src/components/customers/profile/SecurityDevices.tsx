@@ -1,8 +1,9 @@
 import { Smartphone, Globe, CheckCircle, XCircle, Trash2 } from 'lucide-react'
-import { Badge, statusBadge } from '../../ui/Badge'
+import { Badge } from '../../ui/Badge'
 import { useApi } from '../../../hooks/useApi'
 import { getCustomerDevices, getCustomerLoginHistory, revokeDevice } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
+import moment from 'moment'
 
 interface Props { customerId: string }
 
@@ -51,14 +52,14 @@ export function SecurityDevices({ customerId }: Props) {
                     <Smartphone size={14} className="text-slate-500" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-slate-700">{d.deviceName}</p>
-                    <p className="text-[10px] text-slate-400">{d.deviceType}{d.os ? ` · ${d.os}` : ''} · Last used {d.lastUsed?.split('T')[0]}</p>
-                    {d.ipAddress && <p className="text-[10px] text-slate-400">{d.ipAddress}</p>}
+                    <p className="text-xs font-semibold text-slate-700">{d.deviceModel || 'Unknown Device'}</p>
+                    <p className="text-[10px] text-slate-400">{d.osType}{d.osVersion ? ` · ${d.osVersion}` : ''} · Last login {d.lastLoginAt ? moment(d.lastLoginAt).fromNow() : ''}</p>
+                    {d.lastLoginIp && <p className="text-[10px] text-slate-400">{d.lastLoginIp}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.trusted ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {d.trusted ? 'Trusted' : 'Untrusted'}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {d.active ? 'Active' : 'Inactive'}
                   </span>
                   <button onClick={() => handleRevoke(d.id)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 cursor-pointer" title="Revoke device">
                     <Trash2 size={13} />
@@ -89,20 +90,20 @@ export function SecurityDevices({ customerId }: Props) {
             {loginEntries.map(entry => (
               <div key={entry.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
                 <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
-                  {entry.status === 'Failed' || entry.status === 'Suspicious'
+                  {!entry.success
                     ? <Globe size={14} className="text-slate-500" />
                     : <Smartphone size={14} className="text-slate-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-slate-700 truncate">{entry.userAgent}</p>
-                    <Badge label={entry.status} variant={statusBadge(entry.status)} />
+                    <p className="text-xs font-semibold text-slate-700 truncate">{entry.deviceUuid || 'Unknown Agent'}</p>
+                    <Badge label={entry.success ? 'Success' : 'Failed'} variant={entry.success ? 'green' : 'red'} />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{entry.geolocation} · {entry.ipAddress}</p>
-                  <p className="text-[10px] text-slate-400">{entry.timestamp} · MFA: {entry.mfaMethod}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{entry.ipAddress}</p>
+                  <p className="text-[10px] text-slate-400">{moment(entry.attemptedAt).fromNow()}</p>
                 </div>
                 <div className="flex-shrink-0">
-                  {entry.status === 'Success' || entry.status === 'SUCCESS'
+                  {entry.success
                     ? <CheckCircle size={14} className="text-emerald-500" />
                     : <XCircle size={14} className="text-red-400" />}
                 </div>

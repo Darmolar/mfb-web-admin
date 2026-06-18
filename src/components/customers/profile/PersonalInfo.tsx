@@ -1,4 +1,5 @@
 import type { CustomerDetail } from '../../../api'
+import moment from 'moment'
 
 interface Props { customer: CustomerDetail }
 
@@ -20,7 +21,7 @@ export function PersonalInfo({ customer }: Props) {
         <Row label="Full Legal Name" value={fullName} />
         <Row label="Username" value={customer.username} />
         <Row label="Residential Address" value={customer.residentialAddress} />
-        <Row label="Member Since" value={customer.createdAt?.split('T')[0] ?? '—'} />
+        <Row label="Member Since" value={customer.createdAt ? moment(customer.createdAt).fromNow() : '—'} />
       </div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Identity Verifiers</h4>

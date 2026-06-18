@@ -1,4 +1,16 @@
 import { ADMIN_API_KEY, API_BASE_URL } from './config'
+import type {
+  Role,
+  Permission,
+  SavingsProduct,
+  SavingsGoal,
+  LoanProduct,
+  LoanApplication,
+  ReferenceCountry,
+  ReferenceState,
+  ReferenceTown,
+  ReferenceSector
+} from './types'
 import {
   ApiError,
   type AdminLoginData,
@@ -443,4 +455,80 @@ export function updateCustomerLimits(customerId: string, payload: CustomerLimits
 export function getLimitOverrides(params: { page?: number; size?: number } = {}) {
   const qs = buildQueryString({ page: params.page ?? 0, size: params.size ?? 50 })
   return request<PaginatedData<LimitOverrideItem>>(`/v1/bank-admin/customers/limits/overrides${qs}`)
+}
+
+// ──────────────────────────────────────────────
+// Roles & Permissions
+// ──────────────────────────────────────────────
+export function getRoles() {
+  return request<PaginatedData<Role>>('/v1/bank-admin/roles')
+}
+export function getRole(roleId: string) {
+  return request<Role>(`/v1/bank-admin/roles/${roleId}`)
+}
+export function createRole(payload: { name: string; description: string; permissions: string[] }) {
+  return request<Role>('/v1/bank-admin/roles', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+export function assignRole(roleId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/roles/${roleId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify({ adminId })
+  })
+}
+export function getPermissions() {
+  return request<PaginatedData<Permission>>('/v1/bank-admin/roles/permissions')
+}
+
+// ──────────────────────────────────────────────
+// Savings
+// ──────────────────────────────────────────────
+export function getSavingsProducts() {
+  return request<PaginatedData<SavingsProduct>>('/v1/bank-admin/savings/products')
+}
+export function getSavingsGoals() {
+  return request<PaginatedData<SavingsGoal>>('/v1/bank-admin/savings/goals')
+}
+
+// ──────────────────────────────────────────────
+// Loans
+// ──────────────────────────────────────────────
+export function getLoanProducts() {
+  return request<PaginatedData<LoanProduct>>('/v1/bank-admin/loans/products')
+}
+export function getLoanApplications() {
+  return request<PaginatedData<LoanApplication>>('/v1/bank-admin/loans/applications')
+}
+export function approveLoanApplication(applicationId: string, adminId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ adminId })
+  })
+}
+
+// ──────────────────────────────────────────────
+// Reference Data
+// ──────────────────────────────────────────────
+export function getCountries() {
+  return request<PaginatedData<ReferenceCountry>>('/v1/bank-admin/reference/countries')
+}
+export function getStates() {
+  return request<PaginatedData<ReferenceState>>('/v1/bank-admin/reference/states')
+}
+export function getTowns() {
+  return request<PaginatedData<ReferenceTown>>('/v1/bank-admin/reference/towns')
+}
+export function getSectors() {
+  return request<PaginatedData<ReferenceSector>>('/v1/bank-admin/reference/sectors')
+}
+
+// ──────────────────────────────────────────────
+// Devices
+// ──────────────────────────────────────────────
+export function revokeCustomerDevice(customerId: string, deviceId: string) {
+  return request<{ success: boolean }>(`/v1/bank-admin/customers/${customerId}/devices/${deviceId}`, {
+    method: 'DELETE'
+  })
 }

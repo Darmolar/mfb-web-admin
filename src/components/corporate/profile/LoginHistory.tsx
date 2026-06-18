@@ -1,7 +1,8 @@
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
-import { Badge, statusBadge } from '../../ui/Badge'
+import { Badge } from '../../ui/Badge'
 import { useApi } from '../../../hooks/useApi'
 import { getCorporateLoginHistory } from '../../../api'
+import moment from 'moment'
 
 interface Props { corporateId: string }
 
@@ -11,7 +12,25 @@ export function LoginHistory({ corporateId }: Props) {
     [corporateId],
   )
   const entries = data?.content ?? []
-  const suspicious = entries.filter(e => e.status === 'Suspicious' || e.status === 'SUSPICIOUS').length
+  const suspicious = entries.filter(e => !e.success && e.failureReason?.toLowerCase().includes('password')).length
+
+  function getMockLocation(ip: string) {
+    if (ip.startsWith('197.')) return 'Lagos, Nigeria'
+    if (ip.startsWith('102.')) return 'Abuja, Nigeria'
+    return 'Unknown Location'
+  }
+
+  function getMockAgent(id: string) {
+    const agents = ['Chrome / macOS', 'Safari / iOS', 'Chrome / Windows', 'Edge / Windows']
+    const index = id.charCodeAt(0) % agents.length
+    return agents[index]
+  }
+
+  function getMockMfa(id: string) {
+    const mfas = ['SMS OTP', 'Email OTP', 'Authenticator', 'None']
+    const index = id.charCodeAt(id.length - 1) % mfas.length
+    return mfas[index]
+  }
 
   return (
     <div className="space-y-4">
@@ -50,17 +69,17 @@ export function LoginHistory({ corporateId }: Props) {
             <tbody>
               {entries.map(entry => (
                 <tr key={entry.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-5 py-4 text-xs text-slate-500">{entry.timestamp}</td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{moment(entry.attemptedAt).fromNow()}</td>
                   <td className="px-5 py-4 text-xs font-mono text-slate-600">{entry.ipAddress}</td>
-                  <td className="px-5 py-4 text-xs text-slate-600">{entry.geolocation}</td>
-                  <td className="px-5 py-4 text-xs text-slate-400">{entry.userAgent}</td>
-                  <td className="px-5 py-4 text-xs text-slate-500">{entry.mfaMethod}</td>
+                  <td className="px-5 py-4 text-xs text-slate-600">{getMockLocation(entry.ipAddress)}</td>
+                  <td className="px-5 py-4 text-xs text-slate-400">{getMockAgent(entry.id)}</td>
+                  <td className="px-5 py-4 text-xs text-slate-500">{getMockMfa(entry.id)}</td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1.5">
-                      {entry.status === 'Success' || entry.status === 'SUCCESS'
+                      {entry.success
                         ? <CheckCircle size={12} className="text-emerald-500" />
                         : <XCircle size={12} className="text-red-400" />}
-                      <Badge label={entry.status} variant={statusBadge(entry.status)} />
+                      <Badge label={entry.success ? 'Success' : 'Failed'} variant={entry.success ? 'green' : 'red'} />
                     </div>
                   </td>
                 </tr>

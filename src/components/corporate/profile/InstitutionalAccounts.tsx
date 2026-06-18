@@ -1,4 +1,5 @@
 import type { CorporateDetail } from '../../../api'
+import moment from 'moment'
 
 interface Props { detail: CorporateDetail }
 
@@ -21,7 +22,7 @@ export function InstitutionalAccounts({ detail }: Props) {
         <Row label="Tax Identification Number" value={detail.tin} />
         <Row label="Sector" value={detail.sector} />
         <Row label="HQ Address" value={detail.address} />
-        <Row label="Incorporation Date" value={detail.incorporationDate?.split('T')[0] ?? '—'} />
+        <Row label="Incorporation Date" value={detail.incorporationDate ? moment(detail.incorporationDate).fromNow() : '—'} />
       </div>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Banking Details</h4>
@@ -29,7 +30,7 @@ export function InstitutionalAccounts({ detail }: Props) {
         <Row label="Status" value={detail.status} />
         <Row label="Single Transfer Limit" value={`₦${detail.singleTransferLimit?.toLocaleString() ?? '—'}`} />
         <Row label="Daily Transfer Limit" value={`₦${detail.dailyTransferLimit?.toLocaleString() ?? '—'}`} />
-        <Row label="Onboarded" value={detail.createdAt?.split('T')[0] ?? '—'} />
+        <Row label="Onboarded" value={detail.createdAt ? moment(detail.createdAt).fromNow() : '—'} />
       </div>
     </div>
   )

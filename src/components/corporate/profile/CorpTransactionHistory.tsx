@@ -1,10 +1,11 @@
 import { Badge, statusBadge } from '../../ui/Badge'
 import { useApi } from '../../../hooks/useApi'
 import { getCorporateTransfers } from '../../../api'
+import moment from 'moment'
 
 interface Props { corporateId: string }
 
-function fmt(n: number) { return `₦${n.toLocaleString()}` }
+function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function CorpTransactionHistory({ corporateId }: Props) {
   const { data, loading, error, refetch } = useApi(
@@ -44,7 +45,7 @@ export function CorpTransactionHistory({ corporateId }: Props) {
                 <td className="px-6 py-4 text-xs text-slate-500">{tx.currency}</td>
                 <td className="px-6 py-4 text-xs text-slate-600">{tx.beneficiaryName ?? '—'}</td>
                 <td className="px-6 py-4 text-xs text-slate-500">{tx.channel ?? '—'}</td>
-                <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt?.split('T')[0]}</td>
+                <td className="px-6 py-4 text-xs text-slate-400">{tx.createdAt ? moment(tx.createdAt).fromNow() : ''}</td>
                 <td className="px-6 py-4"><Badge label={tx.status} variant={statusBadge(tx.status)} /></td>
               </tr>
             ))}

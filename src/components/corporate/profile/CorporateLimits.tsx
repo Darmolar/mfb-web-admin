@@ -8,7 +8,7 @@ import type { CorporateDetail } from '../../../api'
 
 interface Props { detail: CorporateDetail }
 
-function fmt(n: number) { return `₦${n.toLocaleString()}` }
+function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function CorporateLimits({ detail }: Props) {
   const { user } = useAuth()
