@@ -11,7 +11,7 @@ export function CardRequests() {
   const [viewReq, setViewReq] = useState<any>(null)
   const [details, setDetails] = useState<any>(null)
 
-  const { data, loading, error, refetch } = useApi(async () => {
+  const { data, refetch } = useApi(async () => {
     const res = await getCardRequests({ size: '100' })
     return res.data
   }, [])

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
-  ScrollText, Scale, Settings, LogOut, ShieldAlert, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, Database, CreditCard
+  ScrollText, Scale, LogOut, UserCog,
+  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'

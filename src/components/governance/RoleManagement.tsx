@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, ShieldCheck, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, ShieldCheck } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { getMyPermissions, updateRolePermissions, deleteRole, updateRole } from '../../api'
+import { updateRolePermissions, deleteRole, updateRole } from '../../api'
 
 // NOTE: Since I don't have getRoles defined explicitly in the new batch, I'll assume getRoles exists or I'll just use a direct fetch. 
 // Ah, index.ts actually has `getRoles` already: `export function getRoles() { return request<PaginatedData<Role>>('/v1/bank-admin/roles') }`
@@ -17,7 +17,7 @@ export function RoleManagement() {
   const [permsInput, setPermsInput] = useState('')
   const [draft, setDraft] = useState({ name: '', description: '' })
 
-  const { data, loading, error, refetch } = useApi(async () => {
+  const { data, refetch } = useApi(async () => {
     const res = await getRoles()
     return res.data
   }, [])

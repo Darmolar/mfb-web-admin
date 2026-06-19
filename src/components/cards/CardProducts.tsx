@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Plus, Pencil, Power, PowerOff, ShieldAlert } from 'lucide-react'
+import { Plus, Power, PowerOff, ShieldAlert } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { getCardProducts, createCardProduct, updateCardProduct, activateCardProduct, deactivateCardProduct, getCardProductRequirements, updateCardProductRequirements } from '../../api'
+import { getCardProducts, activateCardProduct, deactivateCardProduct, getCardProductRequirements, updateCardProductRequirements } from '../../api'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
@@ -9,11 +9,11 @@ import { Modal } from '../ui/Modal'
 
 export function CardProducts() {
   const [showCreate, setShowCreate] = useState(false)
-  const [editProduct, setEditProduct] = useState<any>(null)
+
   const [reqProduct, setReqProduct] = useState<any>(null)
   const [reqs, setReqs] = useState<string>('')
 
-  const { data, loading, error, refetch } = useApi(async () => {
+  const { data, refetch } = useApi(async () => {
     const res = await getCardProducts({ size: '100' })
     return res.data
   }, [])
