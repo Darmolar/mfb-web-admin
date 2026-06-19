@@ -10,11 +10,12 @@ import { CompliancePage } from '../compliance/CompliancePage'
 import { LoansPage } from '../loans/LoansPage'
 import { SavingsPage } from '../savings/SavingsPage'
 import { QueuePage } from '../queue/QueuePage'
-import { ReferencePage } from '../reference/ReferencePage'
+// Removed ReferencePage import
+import { CardsPage } from '../cards/CardsPage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
 import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
-import { SettingsPage } from '../settings/SettingsPage'
+// Removed SettingsPage import
 
 const sectionComponents: Record<SectionId, React.ReactNode> = {
   overview: <OverviewPage />,
@@ -25,12 +26,13 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   compliance: <CompliancePage />,
   loans: <LoansPage />,
   savings: <SavingsPage />,
+  cards: <CardsPage />,
   queue: <QueuePage />,
-  reference: <ReferencePage />,
+  // reference: <ReferencePage />,
   activity: <ActivityLogsPage />,
   governance: <GovernancePage />,
   admins: <AdminsPage />,
-  settings: <SettingsPage />,
+  // settings: <SettingsPage />,
 }
 
 export function AppShell() {

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getLoanProducts, createLoanProduct, updateLoanProduct,
   activateLoanProduct, deactivateLoanProduct,
+  getLoanProductRequirements, updateLoanProductRequirements
 } from '../../api'
 import type { LoanProduct, LoanProductPayload } from '../../api/types'
 
@@ -29,10 +30,12 @@ export function LoanProducts() {
   const [form, setForm] = useState<LoanProductPayload>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [reqProduct, setReqProduct] = useState<LoanProduct | null>(null)
+  const [reqs, setReqs] = useState<any[]>([])
 
   const products = useApi<LoanProduct[]>(async () => {
     const res = await getLoanProducts()
-    return res.data.content
+    return res.data
   })
 
   const openCreate = () => {
@@ -98,6 +101,35 @@ export function LoanProducts() {
     }
   }
 
+  const openReqs = async (p: LoanProduct) => {
+    try {
+      setReqProduct(p)
+      const res = await getLoanProductRequirements(p.id)
+      setReqs(Array.isArray(res.data) ? res.data : [])
+    } catch (err) {
+      setReqs([])
+    }
+  }
+
+  const saveReqs = async () => {
+    if (!reqProduct) return
+    try {
+      await updateLoanProductRequirements(reqProduct.id, reqs)
+      setReqProduct(null)
+      alert('Requirements updated')
+    } catch (err) {
+      alert('Failed to update')
+    }
+  }
+
+  const addReq = () => setReqs([...reqs, { id: crypto.randomUUID(), name: '', type: 'STRING', required: true }])
+  const updateReq = (i: number, k: string, v: any) => {
+    const next = [...reqs]
+    next[i] = { ...next[i], [k]: v }
+    setReqs(next)
+  }
+  const removeReq = (i: number) => setReqs(reqs.filter((_, idx) => idx !== i))
+
   const set = (k: keyof LoanProductPayload, v: string | number) =>
     setForm(f => ({ ...f, [k]: v }))
 
@@ -155,6 +187,7 @@ export function LoanProducts() {
         return (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil size={12} /></Button>
+            <Button size="sm" variant="ghost" onClick={() => openReqs(p)}>Reqs</Button>
             <Button size="sm" variant={isActive ? 'danger' : 'success'} onClick={() => handleToggle(p)}>
               {isActive ? 'Deactivate' : 'Activate'}
             </Button>
@@ -239,6 +272,13 @@ export function LoanProducts() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Pre Approved Amount</label>
+              <input type="number" value={form.maxPreApprovedAmount} onChange={e => set('maxPreApprovedAmount', +e.target.value)} className={fieldClass} />
+            </div> 
+          </div>
+
           {saveError && (
             <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{saveError}</p>
           )}
@@ -247,6 +287,39 @@ export function LoanProducts() {
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Product'}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!reqProduct} onClose={() => setReqProduct(null)} title="Product Requirements" width="max-w-3xl">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">Configure requirements for {reqProduct?.name}</p>
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+            {reqs.map((req, i) => (
+              <div key={req.id || i} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200">
+                <input className="flex-1 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-300" placeholder="Field name (e.g. BVN)" value={req.name || ''} onChange={e => updateReq(i, 'name', e.target.value)} />
+                <select className="w-32 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-300" value={req.type || 'STRING'} onChange={e => updateReq(i, 'type', e.target.value)}>
+                  <option value="STRING">Text</option>
+                  <option value="NUMBER">Number</option>
+                  <option value="FILE">File</option>
+                  <option value="BOOLEAN">Boolean</option>
+                </select>
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 px-2 font-semibold">
+                  <input type="checkbox" className="w-3.5 h-3.5 accent-slate-700" checked={req.required ?? true} onChange={e => updateReq(i, 'required', e.target.checked)} />
+                  Required
+                </label>
+                <Button size="sm" variant="danger" onClick={() => removeReq(i)}>Remove</Button>
+              </div>
+            ))}
+            {reqs.length === 0 && <p className="text-xs text-slate-400 py-4 text-center">No requirements configured yet.</p>}
+          </div>
+          <div className="flex gap-3">
+            <Button size="sm" variant="secondary" onClick={addReq}><Plus size={14} /> Add Requirement</Button>
+          </div>
+          <div className="h-px bg-slate-100" />
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setReqProduct(null)}>Cancel</Button>
+            <Button className="flex-1" onClick={saveReqs}>Save Requirements</Button>
           </div>
         </div>
       </Modal>

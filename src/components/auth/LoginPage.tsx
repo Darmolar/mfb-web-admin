@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 export function LoginPage() {
@@ -26,10 +26,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-[#fdf4f4] flex flex-col items-center justify-center p-4">
       <div className="mb-8 flex flex-col items-center">
-        <div className="w-16 h-16 bg-slate-700 rounded-2xl flex items-center justify-center mb-5 shadow-lg">
-          <ShieldCheck size={30} className="text-white" />
-        </div>
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Memphis Bank</h1>
+        <img src="/user-logo.png" alt="MFB Logo" className="h-12 object-contain mb-2" />
         <p className="text-xs font-bold text-slate-400 tracking-[0.2em] uppercase mt-1">Super Admin Portal</p>
       </div>
 

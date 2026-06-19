@@ -488,7 +488,7 @@ export function getPermissions() {
 // Savings
 // ──────────────────────────────────────────────
 export function getSavingsProducts() {
-  return request<PaginatedData<SavingsProduct>>('/v1/bank-admin/savings/products')
+  return request<SavingsProduct[]>('/v1/bank-admin/savings/products')
 }
 export function createSavingsProduct(payload: SavingsProductPayload) {
   return request<SavingsProduct>('/v1/bank-admin/savings/products', {
@@ -534,7 +534,7 @@ export function reactivateSavingsGoal(goalId: string, adminId: string) {
 // Loans
 // ──────────────────────────────────────────────
 export function getLoanProducts() {
-  return request<PaginatedData<LoanProduct>>('/v1/bank-admin/loans/products')
+  return request<LoanProduct[]>('/v1/bank-admin/loans/products')
 }
 export function createLoanProduct(payload: LoanProductPayload) {
   return request<LoanProduct>('/v1/bank-admin/loans/products', {
@@ -605,5 +605,127 @@ export function getSectors() {
 export function revokeCustomerDevice(customerId: string, deviceId: string) {
   return request<{ success: boolean }>(`/v1/bank-admin/customers/${customerId}/devices/${deviceId}`, {
     method: 'DELETE'
+  })
+}
+
+
+// ==========================================
+// NEW/UPDATED API ENDPOINTS (from OpenAPI)
+// ==========================================
+
+// --- Roles & Permissions ---
+export function getMyPermissions() {
+  return request<any>('/v1/bank-admin/roles/my-permissions')
+}
+
+export function updateRolePermissions(roleId: string, data: any) {
+  return request<any>(`/v1/bank-admin/roles/${roleId}/permissions`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export function deleteRole(roleId: string) {
+  return request<any>(`/v1/bank-admin/roles/${roleId}`, {
+    method: 'DELETE'
+  })
+}
+
+export function updateRole(roleId: string, data: any) {
+  return request<any>(`/v1/bank-admin/roles/${roleId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+
+// --- Loans ---
+export function getLoanProductRequirements(productId: string) {
+  return request<any>(`/v1/bank-admin/loans/products/${productId}/requirements`)
+}
+
+export function updateLoanProductRequirements(productId: string, data: any) {
+  return request<any>(`/v1/bank-admin/loans/products/${productId}/requirements`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export function getLoanApplicationRequirements(applicationId: string) {
+  return request<any>(`/v1/bank-admin/loans/applications/${applicationId}/requirements`)
+}
+
+export function getLoanApplicationDetails(applicationId: string) {
+  return request<any>(`/v1/bank-admin/loans/applications/${applicationId}`)
+}
+
+
+
+// --- Savings ---
+
+
+// --- Transactions ---
+export function getAllTransactions(params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+  return request<any>(`/v1/bank-admin/transactions/all${qs}`)
+}
+
+
+// --- Cards (New Module) ---
+export function getCardProducts(params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+  return request<any>(`/v1/bank-admin/cards/products${qs}`)
+}
+
+export function createCardProduct(data: any) {
+  return request<any>('/v1/bank-admin/cards/products', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+}
+
+export function updateCardProduct(productId: string, data: any) {
+  return request<any>(`/v1/bank-admin/cards/products/${productId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export function activateCardProduct(productId: string) {
+  return request<any>(`/v1/bank-admin/cards/products/${productId}/activate`, {
+    method: 'PATCH'
+  })
+}
+
+export function deactivateCardProduct(productId: string) {
+  return request<any>(`/v1/bank-admin/cards/products/${productId}/deactivate`, {
+    method: 'PATCH'
+  })
+}
+
+export function getCardProductRequirements(productId: string) {
+  return request<any>(`/v1/bank-admin/cards/products/${productId}/requirements`)
+}
+
+export function updateCardProductRequirements(productId: string, data: any) {
+  return request<any>(`/v1/bank-admin/cards/products/${productId}/requirements`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export function getCardRequests(params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
+  return request<any>(`/v1/bank-admin/cards/requests${qs}`)
+}
+
+export function getCardRequestDetails(requestId: string) {
+  return request<any>(`/v1/bank-admin/cards/requests/${requestId}/details`)
+}
+
+export function updateCardRequestStatus(requestId: string, status: string) {
+  return request<any>(`/v1/bank-admin/cards/requests/${requestId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
   })
 }

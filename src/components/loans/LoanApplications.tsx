@@ -5,7 +5,10 @@ import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
-import { getLoanApplications, approveLoanApplication, declineLoanApplication, disburseLoan } from '../../api'
+import {
+  getLoanApplications, approveLoanApplication, declineLoanApplication,
+  disburseLoan, getLoanApplicationDetails, getLoanApplicationRequirements
+} from '../../api'
 import type { LoanApplication, PaginatedData } from '../../api/types'
 
 const fmt = (kobo: number | undefined | null) =>
@@ -23,6 +26,9 @@ export function LoanApplications() {
   const [declineReason, setDeclineReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [viewApp, setViewApp] = useState<LoanApplication | null>(null)
+  const [viewDetails, setViewDetails] = useState<any>(null)
+  const [viewReqs, setViewReqs] = useState<any>(null)
 
   const apps = useApi<PaginatedData<LoanApplication>>(async () => {
     const res = await getLoanApplications({ status: statusFilter || undefined })
@@ -36,6 +42,21 @@ export function LoanApplications() {
     setNotes('')
     setDeclineReason('')
     setActionError('')
+  }
+
+  const handleView = async (app: LoanApplication) => {
+    setViewApp(app)
+    try {
+      const [d, r] = await Promise.all([
+        getLoanApplicationDetails(app.id),
+        getLoanApplicationRequirements(app.id).catch(() => ({ data: [] }))
+      ])
+      setViewDetails(d.data)
+      setViewReqs(r.data)
+    } catch (err) {
+      setViewDetails({ error: 'Failed to load details' })
+      setViewReqs([])
+    }
   }
 
   const handleAction = async () => {
@@ -128,6 +149,7 @@ export function LoanApplications() {
       sortable: false,
       cell: (app) => (
         <div className="flex gap-1.5">
+          <Button size="sm" variant="secondary" onClick={() => handleView(app)}>View</Button>
           {app.status === 'PENDING' && (
             <>
               <Button size="sm" variant="success" onClick={() => openAction(app, 'approve')}>Approve</Button>
@@ -220,6 +242,24 @@ export function LoanApplications() {
               >
                 {actionLoading ? 'Processing…' : action === 'approve' ? 'Approve' : action === 'decline' ? 'Decline' : 'Disburse'}
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {viewApp && (
+        <Modal open={true} onClose={() => setViewApp(null)} title="Application Details" width="max-w-2xl">
+          <div className="space-y-4">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+              <p className="font-bold mb-2">Details:</p>
+              {viewDetails ? JSON.stringify(viewDetails, null, 2) : 'Loading details...'}
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+              <p className="font-bold mb-2">Requirements:</p>
+              {viewReqs ? JSON.stringify(viewReqs, null, 2) : 'Loading requirements...'}
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setViewApp(null)}>Close</Button>
             </div>
           </div>
         </Modal>

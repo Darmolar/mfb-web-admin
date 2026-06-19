@@ -31,7 +31,7 @@ export function SavingsProducts() {
 
   const products = useApi<SavingsProduct[]>(async () => {
     const res = await getSavingsProducts()
-    return res.data.content
+    return res.data
   })
 
   const openCreate = () => {

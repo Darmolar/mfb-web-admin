@@ -1,6 +1,6 @@
 import { AlertTriangle, TrendingUp, TrendingDown, ArrowLeftRight, Loader2 } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { getTransactions } from '../../api'
+import { getAllTransactions } from '../../api'
 import { Badge, statusBadge } from '../ui/Badge'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import type { TransactionItem } from '../../api/types'
@@ -22,21 +22,21 @@ const channelColors: Record<string, string> = {
 
 export function TransactionOverview() {
   const { data, loading, error, refetch } = useApi(
-    () => getTransactions({ size: 100 }).then(r => r.data),
+    () => getAllTransactions({ size: '100' }).then(r => r.data),
     [],
   )
 
   const txs = data?.content ?? []
-  const totalVolume = txs.reduce((s, t) => s + t.amount, 0)
-  const completed = txs.filter(t => t.status === 'Completed' || t.status === 'COMPLETED')
-  const pending = txs.filter(t => t.status === 'Pending' || t.status === 'PENDING')
-  const failed = txs.filter(t => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED')
-  const flagged = txs.filter(t => t.flagged)
+  const totalVolume = txs.reduce((s: number, t: any) => s + t.amount, 0)
+  const completed = txs.filter((t: any) => t.status === 'Completed' || t.status === 'COMPLETED')
+  const pending = txs.filter((t: any) => t.status === 'Pending' || t.status === 'PENDING')
+  const failed = txs.filter((t: any) => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED')
+  const flagged = txs.filter((t: any) => t.flagged)
 
-  const channels = Array.from(new Set(txs.map(t => t.channel ?? 'MOBILE'))).filter(Boolean) as string[]
+  const channels = Array.from(new Set(txs.map((t: any) => t.channel ?? 'MOBILE'))).filter(Boolean) as string[]
   const channelData = channels.map(ch => {
-    const cTxs = txs.filter(t => (t.channel ?? 'MOBILE') === ch)
-    const vol = cTxs.reduce((s, t) => s + t.amount, 0)
+    const cTxs = txs.filter((t: any) => (t.channel ?? 'MOBILE') === ch)
+    const vol = cTxs.reduce((s: number, t: any) => s + t.amount, 0)
     return { channel: ch, count: cTxs.length, volume: vol, pct: txs.length > 0 ? Math.round((cTxs.length / txs.length) * 100) : 0 }
   }).sort((a, b) => b.count - a.count)
 
@@ -79,7 +79,7 @@ export function TransactionOverview() {
             <TrendingUp size={14} className="text-emerald-500" />
           </div>
           <p className="text-2xl font-black text-emerald-700">{completed.length}</p>
-          <p className="text-xs text-emerald-500 mt-1">{fmt(completed.reduce((s, t) => s + t.amount, 0))}</p>
+          <p className="text-xs text-emerald-500 mt-1">{fmt(completed.reduce((s: number, t: any) => s + t.amount, 0))}</p>
         </div>
 
         <div className="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-5">
@@ -88,7 +88,7 @@ export function TransactionOverview() {
             <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
           </div>
           <p className="text-2xl font-black text-amber-700">{pending.length}</p>
-          <p className="text-xs text-amber-500 mt-1">{fmt(pending.reduce((s, t) => s + t.amount, 0))} on hold</p>
+          <p className="text-xs text-amber-500 mt-1">{fmt(pending.reduce((s: number, t: any) => s + t.amount, 0))} on hold</p>
         </div>
 
         <div className="bg-red-50 rounded-2xl border border-red-100 shadow-sm p-5">
@@ -97,7 +97,7 @@ export function TransactionOverview() {
             <TrendingDown size={14} className="text-red-400" />
           </div>
           <p className="text-2xl font-black text-red-600">{failed.length}</p>
-          <p className="text-xs text-red-400 mt-1">{fmt(failed.reduce((s, t) => s + t.amount, 0))} impacted</p>
+          <p className="text-xs text-red-400 mt-1">{fmt(failed.reduce((s: number, t: any) => s + t.amount, 0))} impacted</p>
         </div>
       </div>
 
@@ -161,8 +161,8 @@ export function TransactionOverview() {
                 {[
                   { label: 'Completed', count: completed.length, color: 'bg-emerald-500', text: 'text-emerald-700' },
                   { label: 'Pending',   count: pending.length,   color: 'bg-amber-400',   text: 'text-amber-700'   },
-                  { label: 'Failed',    count: txs.filter(t => t.status === 'Failed' || t.status === 'FAILED').length, color: 'bg-red-500', text: 'text-red-700' },
-                  { label: 'Reversed',  count: txs.filter(t => t.status === 'Reversed' || t.status === 'REVERSED').length, color: 'bg-rose-300', text: 'text-rose-700' },
+                  { label: 'Failed',    count: txs.filter((t: any) => t.status === 'Failed' || t.status === 'FAILED').length, color: 'bg-red-500', text: 'text-red-700' },
+                  { label: 'Reversed',  count: txs.filter((t: any) => t.status === 'Reversed' || t.status === 'REVERSED').length, color: 'bg-rose-300', text: 'text-rose-700' },
                 ].map(s => (
                   <div key={s.label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

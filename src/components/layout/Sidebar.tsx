@@ -1,20 +1,20 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
   ScrollText, Scale, Settings, LogOut, ShieldAlert, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, Database
+  AlertTriangle, Landmark, PiggyBank, ServerCog, Database, CreditCard
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export type SectionId =
   | 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight'
-  | 'compliance' | 'loans' | 'savings' | 'queue' | 'reference'
-  | 'activity' | 'governance' | 'admins' | 'settings'
+  | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards'
+  | 'activity' | 'governance' | 'admins' 
 
 export const SECTION_IDS: SectionId[] = [
   'overview', 'kyc', 'customers', 'corporate', 'oversight',
-  'compliance', 'loans', 'savings', 'queue', 'reference',
-  'activity', 'governance', 'admins', 'settings',
+  'compliance', 'loans', 'savings', 'queue', 'cards',
+  'activity', 'governance', 'admins', 
 ]
 
 interface NavItem {
@@ -32,12 +32,13 @@ const navItems: NavItem[] = [
   { id: 'compliance', label: 'Compliance Flags', icon: <AlertTriangle size={18} /> },
   { id: 'loans', label: 'Loan Management', icon: <Landmark size={18} /> },
   { id: 'savings', label: 'Savings Management', icon: <PiggyBank size={18} /> },
+  { id: 'cards', label: 'Card Management', icon: <CreditCard size={18} /> },
   { id: 'queue', label: 'Job Queue', icon: <ServerCog size={18} /> },
-  { id: 'reference', label: 'Reference Data', icon: <Database size={18} /> },
+  // { id: 'reference', label: 'Reference Data', icon: <Database size={18} /> },
   { id: 'activity', label: 'Activity Logs', icon: <ScrollText size={18} /> },
   { id: 'governance', label: 'Governance', icon: <Scale size={18} /> },
   { id: 'admins', label: 'Admin Management', icon: <UserCog size={18} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+  // { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 
 interface SidebarProps {
@@ -49,15 +50,12 @@ export function Sidebar({ active }: SidebarProps) {
   const navigate = useNavigate()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-[#2d3748] flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-full w-60 bg-[#242a37] flex flex-col z-40">
       <div className="px-5 py-6 border-b border-white/10">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-            <ShieldAlert size={16} className="text-white" />
-          </div>
-          <span className="text-white font-black text-sm">Memphis Bank</span>
+        <div className="flex items-center mb-1">
+          <img src="/user-logo.png" alt="Logo" className="h-8 object-contain" />
         </div>
-        <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.2em] ml-11">Super Admin Portal</p>
+        <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.2em] mt-2">Super Admin Portal</p>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

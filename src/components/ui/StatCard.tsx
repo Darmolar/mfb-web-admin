@@ -6,11 +6,15 @@ interface StatCardProps {
   sub?: string
   icon?: ReactNode
   accent?: string
+  onClick?: () => void
 }
 
-export function StatCard({ label, value, sub, icon, accent = 'bg-blue-50 text-blue-600' }: StatCardProps) {
+export function StatCard({ label, value, sub, icon, accent = 'bg-blue-50 text-blue-600', onClick }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex items-start gap-4">
+    <div 
+      onClick={onClick}
+      className={`bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex items-start gap-4 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:border-slate-200 active:scale-[0.99]' : ''}`}
+    >
       {icon && (
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${accent}`}>
           {icon}

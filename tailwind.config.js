@@ -5,10 +5,11 @@ export default {
     extend: {
       colors: {
         blush: '#fdf4f4',
-        sidebar: '#2d3748',
-        'sidebar-hover': '#3d4a5e',
-        'sidebar-active': '#4a5568',
-        primary: '#374151',
+        sidebar: '#242a37',
+        'sidebar-hover': '#1d222d',
+        'sidebar-active': '#181c25',
+        primary: '#d4af37',
+        secondary: '#c21a1a',
       },
     },
   },

@@ -1,4 +1,5 @@
 import { Users, ShieldCheck, ArrowLeftRight, Activity, TrendingUp, AlertTriangle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { StatCard } from '../ui/StatCard'
 import { Card } from '../ui/Card'
 import { Badge, statusBadge } from '../ui/Badge'
@@ -18,6 +19,8 @@ function Skeleton({ className = '' }: { className?: string }) {
 }
 
 export function OverviewPage() {
+  const navigate = useNavigate()
+
   const kycStats = useApi<KycStats>(async () => {
     const res = await getKycStats()
     return res.data
@@ -51,6 +54,7 @@ export function OverviewPage() {
           sub="Awaiting review"
           icon={<ShieldCheck size={18} />}
           accent="bg-amber-50 text-amber-600"
+          onClick={() => navigate('/kyc')}
         />
         <StatCard
           label="KYC Approved"
@@ -58,6 +62,7 @@ export function OverviewPage() {
           sub={`${kStats?.rejected ?? 0} rejected`}
           icon={<ShieldCheck size={18} />}
           accent="bg-blue-50 text-blue-600"
+          onClick={() => navigate('/kyc')}
         />
         <StatCard
           label="High Risk"
@@ -65,6 +70,7 @@ export function OverviewPage() {
           sub="Requires attention"
           icon={<AlertTriangle size={18} />}
           accent="bg-red-50 text-red-600"
+          onClick={() => navigate('/compliance')}
         />
         <StatCard
           label="Compliance Open"
@@ -72,6 +78,7 @@ export function OverviewPage() {
           sub={`${cStats?.underReview ?? 0} under review`}
           icon={<Activity size={18} />}
           accent="bg-emerald-50 text-emerald-600"
+          onClick={() => navigate('/compliance')}
         />
       </div>
 
@@ -83,6 +90,7 @@ export function OverviewPage() {
           sub="All time"
           icon={<TrendingUp size={18} />}
           accent="bg-emerald-50 text-emerald-600"
+          onClick={() => navigate('/compliance')}
         />
         <StatCard
           label="Flags Under Review"
@@ -90,6 +98,7 @@ export function OverviewPage() {
           sub="In progress"
           icon={<ArrowLeftRight size={18} />}
           accent="bg-purple-50 text-purple-600"
+          onClick={() => navigate('/compliance')}
         />
         <StatCard
           label="KYC Total Processed"
@@ -97,6 +106,7 @@ export function OverviewPage() {
           sub="Approved + Rejected"
           icon={<Users size={18} />}
           accent="bg-slate-100 text-slate-600"
+          onClick={() => navigate('/kyc')}
         />
       </div>
 

@@ -5,7 +5,7 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
-import { getCorporates, createCorporate } from '../../api'
+import { getCorporates, createCorporate, getStates, getTowns, getSectors } from '../../api'
 import type { CorporateListItem, CreateCorporateRequest } from '../../api'
 import { EntityProfile } from './profile/EntityProfile'
 import { useAuth } from '../../context/AuthContext'
@@ -29,6 +29,14 @@ export function CorporatePage() {
     () => getCorporates({ size: 100 }).then(r => r.data),
     [],
   )
+
+  const { data: statesRes } = useApi(() => getStates(), [])
+  const { data: townsRes } = useApi(() => getTowns(), [])
+  const { data: sectorsRes } = useApi(() => getSectors(), [])
+
+  const states = statesRes?.data?.content ?? []
+  const towns = townsRes?.data?.content ?? []
+  const sectors = sectorsRes?.data?.content ?? []
 
   if (selectedId) return <EntityProfile corporateId={selectedId} onBack={() => setSelectedId(null)} />
 
@@ -135,24 +143,65 @@ export function CorporatePage() {
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Corporate Profile" width="max-w-2xl">
         <form onSubmit={handleCreate} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            {([
-              ['companyName', 'Company Name', 'e.g. Acme Holdings Ltd'],
-              ['rcNumber', 'RC Number', 'e.g. RC1234567'],
-              ['tin', 'Tax Identification Number (TIN)', 'e.g. 12345678-0001'],
-              ['bvn', 'BVN (Signatory)', '11-digit BVN'],
-              ['sector', 'Sector', 'e.g. Manufacturing'],
-              ['sectorCode', 'Sector Code', 'e.g. 42'],
-              ['phone', 'Phone', 'e.g. 08012345678'],
-              ['email', 'Email', 'info@company.com'],
-              ['acctOfficer', 'Account Officer', 'Officer name or ID'],
-              ['stateCode', 'State Code', 'e.g. LA'],
-              ['townCode', 'Town Code', 'e.g. LAG'],
-            ] as [keyof typeof EMPTY_FORM, string, string][]).map(([key, label, placeholder]) => (
-              <div key={key} className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slateate-500 uppercase tracking-widest">{label} <span className="text-red-400">*</span></label>
-                <input className={inputCls} value={form[key]} onChange={e => handleField(key, e.target.value)} placeholder={placeholder} required />
-              </div>
-            ))}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Company Name <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.companyName} onChange={e => handleField('companyName', e.target.value)} placeholder="e.g. Acme Holdings Ltd" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">RC Number <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.rcNumber} onChange={e => handleField('rcNumber', e.target.value)} placeholder="e.g. RC1234567" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tax Identification Number (TIN) <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.tin} onChange={e => handleField('tin', e.target.value)} placeholder="e.g. 12345678-0001" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">BVN (Signatory) <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.bvn} onChange={e => handleField('bvn', e.target.value)} placeholder="11-digit BVN" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Phone <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.phone} onChange={e => handleField('phone', e.target.value)} placeholder="e.g. 08012345678" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email <span className="text-red-400">*</span></label>
+              <input className={inputCls} type="email" value={form.email} onChange={e => handleField('email', e.target.value)} placeholder="info@company.com" required />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Officer <span className="text-red-400">*</span></label>
+              <input className={inputCls} value={form.acctOfficer} onChange={e => handleField('acctOfficer', e.target.value)} placeholder="Officer name or ID" required />
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sector <span className="text-red-400">*</span></label>
+              <select className={inputCls} value={form.sectorCode} onChange={e => {
+                const s = sectors.find((x: any) => x.code === e.target.value)
+                setForm(p => ({ ...p, sectorCode: e.target.value, sector: s?.name || '' }))
+              }} required>
+                <option value="">Select Sector</option>
+                {sectors.map((s: any) => <option key={s.code} value={s.code}>{s.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">State <span className="text-red-400">*</span></label>
+              <select className={inputCls} value={form.stateCode} onChange={e => {
+                handleField('stateCode', e.target.value)
+                handleField('townCode', '')
+              }} required>
+                <option value="">Select State</option>
+                {states.map((s: any) => <option key={s.code} value={s.code}>{s.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Town <span className="text-red-400">*</span></label>
+              <select className={inputCls} value={form.townCode} onChange={e => handleField('townCode', e.target.value)} required disabled={!form.stateCode}>
+                <option value="">Select Town</option>
+                {towns.filter((t: any) => t.stateCode === form.stateCode).map((t: any) => <option key={t.code} value={t.code}>{t.name}</option>)}
+              </select>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Incorporation Date <span className="text-red-400">*</span></label>
               <input className={inputCls} type="date" value={form.incorporationDate} onChange={e => handleField('incorporationDate', e.target.value)} required />
