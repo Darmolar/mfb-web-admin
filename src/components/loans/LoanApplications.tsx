@@ -5,14 +5,15 @@ import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import {
   getLoanApplications, approveLoanApplication, declineLoanApplication,
-  disburseLoan, getLoanApplicationDetails, getLoanApplicationRequirements
+  disburseLoan
 } from '../../api'
 import type { LoanApplication, PaginatedData } from '../../api/types'
 
-const fmt = (kobo: number | undefined | null) =>
-  kobo == null ? '—' : `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
+const fmt = (amount: number | undefined | null) =>
+  amount == null ? '—' : `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
 
 const STATUS_FILTERS = ['', 'PENDING', 'APPROVED', 'DECLINED', 'DISBURSED']
 
@@ -26,9 +27,7 @@ export function LoanApplications() {
   const [declineReason, setDeclineReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
-  const [viewApp, setViewApp] = useState<LoanApplication | null>(null)
-  const [viewDetails, setViewDetails] = useState<any>(null)
-  const [viewReqs, setViewReqs] = useState<any>(null)
+  const navigate = useNavigate()
 
   const apps = useApi<PaginatedData<LoanApplication>>(async () => {
     const res = await getLoanApplications({ status: statusFilter || undefined })
@@ -38,25 +37,14 @@ export function LoanApplications() {
   const openAction = (app: LoanApplication, a: 'approve' | 'decline' | 'disburse') => {
     setSelected(app)
     setAction(a)
-    setApprovedAmount(String((app.requestedAmount ?? app.amount ?? 0) / 100))
+    setApprovedAmount(String(app.requestedAmount ?? app.amount ?? 0))
     setNotes('')
     setDeclineReason('')
     setActionError('')
   }
 
-  const handleView = async (app: LoanApplication) => {
-    setViewApp(app)
-    try {
-      const [d, r] = await Promise.all([
-        getLoanApplicationDetails(app.id),
-        getLoanApplicationRequirements(app.id).catch(() => ({ data: [] }))
-      ])
-      setViewDetails(d.data)
-      setViewReqs(r.data)
-    } catch (err) {
-      setViewDetails({ error: 'Failed to load details' })
-      setViewReqs([])
-    }
+  const handleView = (app: LoanApplication) => {
+    navigate(`/loans/application/${app.id}`)
   }
 
   const handleAction = async () => {
@@ -67,7 +55,7 @@ export function LoanApplications() {
       if (action === 'approve') {
         await approveLoanApplication(selected.id, {
           adminId: user.adminId,
-          approvedAmount: Math.round(parseFloat(approvedAmount) * 100),
+          approvedAmount: parseFloat(approvedAmount),
           notes: notes || 'Approved by admin.',
         })
       } else if (action === 'decline') {
@@ -247,23 +235,7 @@ export function LoanApplications() {
         </Modal>
       )}
 
-      {viewApp && (
-        <Modal open={true} onClose={() => setViewApp(null)} title="Application Details" width="max-w-2xl">
-          <div className="space-y-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
-              <p className="font-bold mb-2">Details:</p>
-              {viewDetails ? JSON.stringify(viewDetails, null, 2) : 'Loading details...'}
-            </div>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-slate-700 font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
-              <p className="font-bold mb-2">Requirements:</p>
-              {viewReqs ? JSON.stringify(viewReqs, null, 2) : 'Loading requirements...'}
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={() => setViewApp(null)}>Close</Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+
     </>
   )
 }

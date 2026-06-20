@@ -17,6 +17,9 @@ import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
 // Removed SettingsPage import
 
+import { Routes, Route } from 'react-router-dom'
+import { LoanApplicationDetailsPage } from '../loans/LoanApplicationDetailsPage'
+
 const sectionComponents: Record<SectionId, React.ReactNode> = {
   overview: <OverviewPage />,
   kyc: <KYCPage />,
@@ -24,7 +27,12 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   corporate: <CorporatePage />,
   oversight: <OversightPage />,
   compliance: <CompliancePage />,
-  loans: <LoansPage />,
+  loans: (
+    <Routes>
+      <Route index element={<LoansPage />} />
+      <Route path="application/:id" element={<LoanApplicationDetailsPage />} />
+    </Routes>
+  ),
   savings: <SavingsPage />,
   cards: <CardsPage />,
   queue: <QueuePage />,

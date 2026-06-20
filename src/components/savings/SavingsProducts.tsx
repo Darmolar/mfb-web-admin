@@ -12,8 +12,8 @@ import {
 } from '../../api'
 import type { SavingsProduct, SavingsProductPayload } from '../../api/types'
 
-const fmt = (kobo: number | undefined | null) =>
-  kobo == null ? '—' : `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
+const fmt = (amount: number | undefined | null) =>
+  amount == null ? '—' : `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
 
 const EMPTY: SavingsProductPayload = {
   code: '', name: '', description: '', minAmount: 0, maxAmount: 0,
@@ -201,11 +201,11 @@ export function SavingsProducts() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Amount (₦)</label>
-              <input type="number" value={form.minAmount / 100} onChange={e => set('minAmount', +e.target.value * 100)} className={fieldClass} />
+              <input type="number" value={form.minAmount} onChange={e => set('minAmount', +e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Amount (₦)</label>
-              <input type="number" value={form.maxAmount / 100} onChange={e => set('maxAmount', +e.target.value * 100)} className={fieldClass} />
+              <input type="number" value={form.maxAmount} onChange={e => set('maxAmount', +e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Annual Rate %</label>

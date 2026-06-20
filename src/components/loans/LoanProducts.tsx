@@ -13,14 +13,14 @@ import {
 } from '../../api'
 import type { LoanProduct, LoanProductPayload } from '../../api/types'
 
-const fmt = (kobo: number | undefined | null) =>
-  kobo == null ? '—' : `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
+const fmt = (amount: number | undefined | null) =>
+  amount == null ? '—' : `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
 
 const EMPTY: LoanProductPayload = {
   code: '', name: '', description: '', minAmount: 0, maxAmount: 0,
   monthlyRatePercent: 0, minTenureMonths: 1, maxTenureMonths: 12,
   maxPreApprovedAmount: 0, minMonthlyIncome: 0, minAnnualIncome: 0,
-  minAccountAgeDays: 0, adminId: '',
+  minAccountAgeDays: 0, adminId: '', allowedEmploymentTypes: '', active: true,
 }
 
 export function LoanProducts() {
@@ -61,6 +61,8 @@ export function LoanProducts() {
       minAnnualIncome: 0,
       minAccountAgeDays: 0,
       adminId: user?.adminId ?? '',
+      allowedEmploymentTypes: '',
+      active: true,
     })
     setSaveError('')
     setModalOpen(true)
@@ -130,7 +132,7 @@ export function LoanProducts() {
   }
   const removeReq = (i: number) => setReqs(reqs.filter((_, idx) => idx !== i))
 
-  const set = (k: keyof LoanProductPayload, v: string | number) =>
+  const set = (k: keyof LoanProductPayload, v: string | number | boolean) =>
     setForm(f => ({ ...f, [k]: v }))
 
   const fieldClass = 'w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 text-slate-700'
@@ -238,11 +240,11 @@ export function LoanProducts() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Amount (₦)</label>
-              <input type="number" value={form.minAmount / 100} onChange={e => set('minAmount', +e.target.value * 100)} className={fieldClass} />
+              <input type="number" value={form.minAmount} onChange={e => set('minAmount', +e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Amount (₦)</label>
-              <input type="number" value={form.maxAmount / 100} onChange={e => set('maxAmount', +e.target.value * 100)} className={fieldClass} />
+              <input type="number" value={form.maxAmount} onChange={e => set('maxAmount', +e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Monthly Rate %</label>
@@ -264,7 +266,7 @@ export function LoanProducts() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Monthly Income (₦)</label>
-              <input type="number" value={form.minMonthlyIncome / 100} onChange={e => set('minMonthlyIncome', +e.target.value * 100)} className={fieldClass} />
+              <input type="number" value={form.minMonthlyIncome} onChange={e => set('minMonthlyIncome', +e.target.value)} className={fieldClass} />
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Account Age (days)</label>
@@ -274,9 +276,34 @@ export function LoanProducts() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Pre Approved Amount</label>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Pre Approved Amount (₦)</label>
               <input type="number" value={form.maxPreApprovedAmount} onChange={e => set('maxPreApprovedAmount', +e.target.value)} className={fieldClass} />
             </div> 
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Allowed Employment Types</label>
+              <select
+                multiple
+                value={form.allowedEmploymentTypes ? form.allowedEmploymentTypes.split(',') : []}
+                onChange={e => {
+                  const selected = Array.from(e.target.selectedOptions, option => option.value)
+                  set('allowedEmploymentTypes', selected.join(','))
+                }}
+                className={fieldClass}
+                style={{ height: '80px' }}
+              >
+                <option value="EMPLOYED">Employed</option>
+                <option value="SELF_EMPLOYED">Self Employed</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="UNEMPLOYED">Unemployed</option>
+                <option value="STUDENT">Student</option>
+              </select>
+              <p className="text-[9px] text-slate-400 mt-1">Hold Cmd/Ctrl to select multiple</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-2">
+            <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4 accent-slate-700" />
+            <label className="text-sm font-semibold text-slate-700">Active</label>
           </div>
 
           {saveError && (

@@ -684,6 +684,8 @@ export type LoanProductPayload = {
   minMonthlyIncome: number
   minAnnualIncome: number
   minAccountAgeDays: number
+  allowedEmploymentTypes: string
+  active: boolean
   adminId: string
 }
 

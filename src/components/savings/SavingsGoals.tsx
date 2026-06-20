@@ -6,8 +6,8 @@ import { useAuth } from '../../context/AuthContext'
 import { getSavingsGoals, suspendSavingsGoal, reactivateSavingsGoal } from '../../api'
 import type { SavingsGoal, PaginatedData } from '../../api/types'
 
-const fmt = (kobo: number | undefined | null) =>
-  kobo == null ? '—' : `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
+const fmt = (amount: number | undefined | null) =>
+  amount == null ? '—' : `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
 
 export function SavingsGoals() {
   const { user } = useAuth()
