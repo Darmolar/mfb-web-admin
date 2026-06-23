@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 // Removed ShieldCheck
 import { useAuth } from '../../context/AuthContext'
-import { LOGIN_MFA_OTP } from '../../api'
 
 export function TwoFactorPage() {
   const { verifyTwoFactor } = useAuth()
