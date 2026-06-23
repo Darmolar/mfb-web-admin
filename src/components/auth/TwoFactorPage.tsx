@@ -48,9 +48,7 @@ export function TwoFactorPage() {
         <div className="text-center mb-6">
           <p className="text-sm font-semibold text-slate-600">Two-factor authentication</p>
           <p className="text-xs text-slate-400 mt-1">Verify your identity to access the ledger</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-            Test OTP: <span className="text-slate-700">{LOGIN_MFA_OTP}</span>
-          </p>
+
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -88,9 +86,6 @@ export function TwoFactorPage() {
         <div className="flex justify-between mt-5">
           <button className="text-xs text-blue-500 hover:text-blue-700 font-semibold cursor-pointer">
             Resend Code
-          </button>
-          <button className="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer">
-            Try a different method
           </button>
         </div>
       </div>

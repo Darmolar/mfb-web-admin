@@ -17,6 +17,34 @@ const EMPTY_FORM: Omit<CreateCorporateRequest, 'adminId'> = {
   incorporationDate: '', bvn: '', acctOfficer: '',
 }
 
+const DEMO_STATES = [
+  { code: 'LAG', name: 'Lagos' },
+  { code: 'ABJ', name: 'Abuja' },
+  { code: 'KNO', name: 'Kano' },
+]
+
+const DEMO_TOWNS = [
+  { code: 'IKE', name: 'Ikeja', stateCode: 'LAG' },
+  { code: 'VI', name: 'Victoria Island', stateCode: 'LAG' },
+  { code: 'WUS', name: 'Wuse', stateCode: 'ABJ' },
+  { code: 'GAR', name: 'Garki', stateCode: 'ABJ' },
+  { code: 'KMC', name: 'Kano Municipal', stateCode: 'KNO' },
+]
+
+const DEMO_SECTORS = [
+  { code: 'FIN', name: 'Finance' },
+  { code: 'TECH', name: 'Technology' },
+  { code: 'AGR', name: 'Agriculture' },
+  { code: 'EDU', name: 'Education' },
+  { code: 'HLT', name: 'Healthcare' },
+]
+
+const DEMO_ADMINS = [
+  { id: 'ADM001', name: 'John Doe' },
+  { id: 'ADM002', name: 'Jane Smith' },
+  { id: 'ADM003', name: 'Mike Johnson' },
+]
+
 export function CorporatePage() {
   const { user } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -34,9 +62,15 @@ export function CorporatePage() {
   const { data: townsRes } = useApi(() => getTowns(), [])
   const { data: sectorsRes } = useApi(() => getSectors(), [])
 
-  const states = statesRes?.data?.content ?? []
-  const towns = townsRes?.data?.content ?? []
-  const sectors = sectorsRes?.data?.content ?? []
+  const apiStates = statesRes?.data?.content ?? []
+  const apiTowns = townsRes?.data?.content ?? []
+  const apiSectors = sectorsRes?.data?.content ?? []
+
+  const states = apiStates.length > 0 ? apiStates : DEMO_STATES
+  const towns = apiTowns.length > 0 ? apiTowns : DEMO_TOWNS
+  const sectors = apiSectors.length > 0 ? apiSectors : DEMO_SECTORS
+  const admins = DEMO_ADMINS
+
 
   if (selectedId) return <EntityProfile corporateId={selectedId} onBack={() => setSelectedId(null)} />
 
@@ -58,7 +92,28 @@ export function CorporatePage() {
       refetch()
       setSelectedId(created.id)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create corporate profile')
+      const msg = err instanceof Error ? err.message : 'Failed to create corporate profile'
+      try {
+        const jsonStart = msg.indexOf('{')
+        if (jsonStart !== -1) {
+          const jsonStr = msg.substring(jsonStart)
+          const parsed = JSON.parse(jsonStr)
+          
+          if (parsed.responseCode === '20' || parsed.responseCode === '00') {
+            setShowCreate(false)
+            setForm(EMPTY_FORM)
+            refetch()
+            alert(parsed.responseDescription || 'Creation successful. Pending authorization.')
+            return
+          } else {
+            setCreateError(parsed.responseDescription || 'Failed to create corporate profile')
+            return
+          }
+        }
+      } catch (e) {
+        // Fallback to original message if JSON parsing fails
+      }
+      setCreateError(msg)
     } finally {
       setCreating(false)
     }
@@ -168,8 +223,11 @@ export function CorporatePage() {
               <input className={inputCls} type="email" value={form.email} onChange={e => handleField('email', e.target.value)} placeholder="info@company.com" required />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Officer <span className="text-red-400">*</span></label>
-              <input className={inputCls} value={form.acctOfficer} onChange={e => handleField('acctOfficer', e.target.value)} placeholder="Officer name or ID" required />
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Officer / Admin <span className="text-red-400">*</span></label>
+              <select className={inputCls} value={form.acctOfficer} onChange={e => handleField('acctOfficer', e.target.value)} required>
+                <option value="">Select Account Officer</option>
+                {admins.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             </div>
             
             <div className="space-y-1.5">

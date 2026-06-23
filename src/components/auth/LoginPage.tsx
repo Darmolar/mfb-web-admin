@@ -54,7 +54,7 @@ export function LoginPage() {
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 Password
               </label>
-              <button type="button" className="text-xs font-bold text-blue-500 hover:text-blue-700 cursor-pointer">
+              <button type="button" className="hidden">
                 FORGOT?
               </button>
             </div>
