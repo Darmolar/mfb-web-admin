@@ -11,6 +11,7 @@ export type SectionId =
   | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards'
   | 'activity' | 'governance' | 'admins' 
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const SECTION_IDS: SectionId[] = [
   'overview', 'kyc', 'customers', 'corporate', 'oversight',
   'compliance', 'loans', 'savings', 'queue', 'cards',

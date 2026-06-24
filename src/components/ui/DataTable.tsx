@@ -80,7 +80,8 @@ export function DataTable<T extends Record<string, any>>({
   }, [sortedData, currentPage, pageSize])
 
   // Reset to page 1 if data or search changes
-  useMemo(() => setCurrentPage(1), [searchTerm, sortConfig])
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  React.useEffect(() => setCurrentPage(1), [searchTerm, sortConfig])
 
   return (
     <div className="flex flex-col space-y-4">

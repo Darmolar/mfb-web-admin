@@ -48,6 +48,7 @@ export function LoanApplicationDetailsPage() {
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const handleAction = async () => {

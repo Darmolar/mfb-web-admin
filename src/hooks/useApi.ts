@@ -28,7 +28,9 @@ export function useApi<T>(
 
   // Keep fetcher ref stable to avoid re-triggering on every render
   const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+  useEffect(() => {
+    fetcherRef.current = fetcher
+  }, [fetcher])
 
   const refetch = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }))
@@ -43,6 +45,7 @@ export function useApi<T>(
 
   useEffect(() => {
     if (deps === null) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps === null ? [] : deps)

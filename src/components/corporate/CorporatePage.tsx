@@ -52,6 +52,7 @@ export function CorporatePage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   const { data, loading, error, refetch } = useApi(
     () => getCorporates({ size: 100 }).then(r => r.data),
@@ -86,33 +87,16 @@ export function CorporatePage() {
     setCreating(true)
     setCreateError(null)
     try {
-      const { data: created } = await createCorporate({ ...form, adminId: user.adminId })
+      await createCorporate({ ...form, adminId: user.adminId })
       setShowCreate(false)
       setForm(EMPTY_FORM)
       refetch()
-      setSelectedId(created.id)
+      setNotification({ type: 'success', message: 'Corporate profile created successfully. Pending authorization.' })
+      setTimeout(() => setNotification(null), 5000)
+      // Note: We avoid setSelectedId(created.id) here if we want the notification to be visible on the list view.
+      // If immediate navigation is preferred, the notification would need to be moved to a global context.
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to create corporate profile'
-      try {
-        const jsonStart = msg.indexOf('{')
-        if (jsonStart !== -1) {
-          const jsonStr = msg.substring(jsonStart)
-          const parsed = JSON.parse(jsonStr)
-          
-          if (parsed.responseCode === '20' || parsed.responseCode === '00') {
-            setShowCreate(false)
-            setForm(EMPTY_FORM)
-            refetch()
-            alert(parsed.responseDescription || 'Creation successful. Pending authorization.')
-            return
-          } else {
-            setCreateError(parsed.responseDescription || 'Failed to create corporate profile')
-            return
-          }
-        }
-      } catch (e) {
-        // Fallback to original message if JSON parsing fails
-      }
       setCreateError(msg)
     } finally {
       setCreating(false)
@@ -169,6 +153,13 @@ export function CorporatePage() {
 
   return (
     <>
+      {notification && (
+        <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
+          notification.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'
+        }`}>
+          {notification.message}
+        </div>
+      )}
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-600">Corporate Directory</h3>
@@ -229,7 +220,7 @@ export function CorporatePage() {
                 {admins.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
-            
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sector <span className="text-red-400">*</span></label>
               <select className={inputCls} value={form.sectorCode} onChange={e => {
