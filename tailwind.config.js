@@ -8,7 +8,7 @@ export default {
         sidebar: '#242a37',
         'sidebar-hover': '#1d222d',
         'sidebar-active': '#181c25',
-        primary: '#d4af37',
+        primary: '#c6a22a',
         secondary: '#c21a1a',
       },
     },
