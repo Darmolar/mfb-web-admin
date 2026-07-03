@@ -111,6 +111,10 @@ export type KycPendingItem = {
   requestedTier: number
   riskLevel: string
   status: string
+  customerId?: string
+  accountNumber?: string
+  documents?: { type: string; url: string; name: string }[]
+  submittedInfo?: { label: string; value: string }[]
 }
 
 export type KycStats = {
