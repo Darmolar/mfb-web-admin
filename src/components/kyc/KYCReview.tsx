@@ -242,7 +242,7 @@ export function KYCReview() {
                     <p className="text-sm font-bold text-red-900 mb-2">Confirm Rejection</p>
                     <p className="text-xs text-red-700 mb-3">Please provide a mandatory reason for rejecting this KYC application. This note will be sent to the customer.</p>
                     <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setShowRejectPrompt(false)}>
+                      <Button variant="secondary" className="flex-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setShowRejectPrompt(false)}>
                         Cancel
                       </Button>
                       <Button variant="danger" className="flex-1" onClick={() => {

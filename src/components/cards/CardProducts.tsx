@@ -18,12 +18,12 @@ export function CardProducts() {
     return res.data
   }, [])
 
-  const products = data?.content ?? []
+  const products = data ?? []
 
   const toggleStatus = async (p: any) => {
     try {
-      if (p.status === 'ACTIVE') await deactivateCardProduct(p.id)
-      else await activateCardProduct(p.id)
+      if (p.status === 'ACTIVE') await deactivateCardProduct(p.id, 'admin')
+      else await activateCardProduct(p.id, 'admin')
       refetch()
     } catch (err) {
       alert('Failed to toggle status')
@@ -42,7 +42,7 @@ export function CardProducts() {
 
   const saveReqs = async () => {
     try {
-      await updateCardProductRequirements(reqProduct.id, JSON.parse(reqs))
+      await updateCardProductRequirements(reqProduct.id, JSON.parse(reqs), 'admin')
       setReqProduct(null)
       alert('Requirements updated')
     } catch (err) {

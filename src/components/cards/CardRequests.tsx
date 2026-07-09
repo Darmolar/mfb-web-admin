@@ -30,7 +30,7 @@ export function CardRequests() {
 
   const updateStatus = async (status: string) => {
     try {
-      await updateCardRequestStatus(viewReq.id, status)
+      await updateCardRequestStatus(viewReq.id, status, 'admin')
       setViewReq(null)
       refetch()
     } catch (err) {
