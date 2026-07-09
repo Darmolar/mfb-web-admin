@@ -17,6 +17,7 @@ export function KYCReview() {
   const [notes, setNotes] = useState('')
   const [riskFilter, setRiskFilter] = useState<string>('')
   const [modalTab, setModalTab] = useState<'review' | 'details' | 'documents'>('review')
+  const [showRejectPrompt, setShowRejectPrompt] = useState(false)
 
   const stats = useApi<KycStats>(async () => {
     const res = await getKycStats()
@@ -87,7 +88,7 @@ export function KYCReview() {
       header: 'Action',
       sortable: false,
       cell: (app) => (
-        <Button size="sm" onClick={() => { setSelected(app); setNotes(''); setActionError('') }}>Review</Button>
+        <Button size="sm" onClick={() => { setSelected(app); setNotes(''); setActionError(''); setShowRejectPrompt(false); }}>Review</Button>
       ),
     },
   ]
@@ -133,7 +134,7 @@ export function KYCReview() {
       )}
 
       {selected && (
-        <Modal open={!!selected} onClose={() => { setSelected(null); setModalTab('review') }} title="Review KYC Application">
+        <Modal open={!!selected} onClose={() => { setSelected(null); setModalTab('review'); setShowRejectPrompt(false); }} title="Review KYC Application">
           <div className="space-y-5">
             <div className="flex items-start justify-between">
               <div>
@@ -235,14 +236,36 @@ export function KYCReview() {
                 )}
 
                 <div className="h-px bg-slate-100" />
-                <div className="flex gap-3">
-                  <Button variant="danger" className="flex-1" onClick={() => handleAction('reject')} disabled={actionLoading}>
-                    {actionLoading ? 'Processing…' : 'Reject'}
-                  </Button>
-                  <Button variant="success" className="flex-1" onClick={() => handleAction('approve')} disabled={actionLoading}>
-                    {actionLoading ? 'Processing…' : 'Approve & Upgrade'}
-                  </Button>
-                </div>
+                
+                {showRejectPrompt ? (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
+                    <p className="text-sm font-bold text-red-900 mb-2">Confirm Rejection</p>
+                    <p className="text-xs text-red-700 mb-3">Please provide a mandatory reason for rejecting this KYC application. This note will be sent to the customer.</p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1 bg-white border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setShowRejectPrompt(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="danger" className="flex-1" onClick={() => {
+                        if (!notes.trim()) {
+                          setActionError('A rejection note is required.');
+                          return;
+                        }
+                        handleAction('reject');
+                      }} disabled={actionLoading}>
+                        {actionLoading ? 'Processing…' : 'Confirm Reject'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <Button variant="danger" className="flex-1" onClick={() => { setActionError(''); setShowRejectPrompt(true); }} disabled={actionLoading}>
+                      Reject
+                    </Button>
+                    <Button variant="success" className="flex-1" onClick={() => handleAction('approve')} disabled={actionLoading}>
+                      {actionLoading ? 'Processing…' : 'Approve & Upgrade'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

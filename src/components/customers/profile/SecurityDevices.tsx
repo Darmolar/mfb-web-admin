@@ -53,6 +53,7 @@ export function SecurityDevices({ customerId }: Props) {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-700">{d.deviceModel || 'Unknown Device'}</p>
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">UUID: {d.deviceUuid}</p>
                     <p className="text-[10px] text-slate-400">{d.osType}{d.osVersion ? ` · ${d.osVersion}` : ''} · Last login {d.lastLoginAt ? moment(d.lastLoginAt).fromNow() : ''}</p>
                     {d.lastLoginIp && <p className="text-[10px] text-slate-400">{d.lastLoginIp}</p>}
                   </div>

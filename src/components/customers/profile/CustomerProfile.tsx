@@ -8,6 +8,7 @@ import { AccountsLimits } from './AccountsLimits'
 import { TransactionHistory } from './TransactionHistory'
 import { SecurityDevices } from './SecurityDevices'
 import { KYCDocuments } from './KYCDocuments'
+import { AuditLogsTab } from './AuditLogsTab'
 import { useApi } from '../../../hooks/useApi'
 import { useAuth } from '../../../context/AuthContext'
 import { getCustomerDetail, updateCustomerStatus } from '../../../api'
@@ -19,6 +20,7 @@ const tabs = [
   { id: 'transactions', label: 'Transaction History' },
   { id: 'security', label: 'Security & Devices' },
   { id: 'kyc', label: 'KYC Documents' },
+  { id: 'audit', label: 'Audit Logs' },
 ]
 
 import { raiseComplianceFlag } from '../../../api'
@@ -150,6 +152,7 @@ export function CustomerProfile({ customerId, onBack }: Props) {
       {activeTab === 'transactions' && <TransactionHistory customerId={c.id} />}
       {activeTab === 'security' && <SecurityDevices customerId={c.id} />}
       {activeTab === 'kyc' && <KYCDocuments customer={c} />}
+      {activeTab === 'audit' && <AuditLogsTab customerId={c.id} />}
     </div>
   )
 }
