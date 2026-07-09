@@ -748,3 +748,109 @@ export type ReferenceSector = {
   code: string
   name: string
 }
+
+// ──────────────────────────────────────────────
+// Promotions
+// ──────────────────────────────────────────────
+export type Promotion = {
+  id?: string
+  title?: string
+  active?: boolean
+}
+
+export type PromotionPayload = {
+  title: string
+  summary: string
+  body: string
+  imageUrl: string
+  actionLabel: string
+  actionUrl: string
+  displayOrder: number
+  active: boolean
+  startsAt: string
+  endsAt: string
+}
+
+// ──────────────────────────────────────────────
+// Broadcasts
+// ──────────────────────────────────────────────
+export type Broadcast = {
+  id?: string
+  title?: string
+  target?: string
+  channel?: string
+  status?: string
+  sentAt?: string
+}
+
+export type BroadcastDetail = {
+  id: string
+  title: string
+  body: string
+  target: string
+  channel: string
+  status: string
+}
+
+export type CreateBroadcastRequest = {
+  title: string
+  body: string
+  target: string
+  channel: string
+}
+
+// ──────────────────────────────────────────────
+// Logs
+// ──────────────────────────────────────────────
+export type ApiLog = {
+  traceId?: string
+  service?: string
+  direction?: string
+}
+
+// ──────────────────────────────────────────────
+// Cards
+// ──────────────────────────────────────────────
+export type CardProduct = {
+  id?: string
+  code?: string
+  name?: string
+  active?: boolean
+}
+
+export type CardProductPayload = {
+  code: string
+  cardType: string
+  name: string
+  description: string
+  issuanceFee: number
+  replacementFee: number
+  requiresDeliveryAddress: boolean
+  defaultAtmLimit: number
+  defaultPosLimit: number
+  defaultWebLimit: number
+  active: boolean
+  adminId: string
+}
+
+export type CardProductRequirement = {
+  fieldKey?: string
+  label?: string
+  fieldType?: string
+  required?: boolean
+  fieldOrder?: number
+  optionsCsv?: string
+  helpText?: string
+}
+
+export type CardRequest = {
+  id?: string
+  status?: string
+  productName?: string
+}
+
+export type CardRequestDetails = {
+  id: string
+  status: string
+  deliveryAddress: string
+}

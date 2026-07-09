@@ -75,6 +75,17 @@ import {
   type UpdateCorporateResponse,
   type UpdateUserStatusRequest,
   type UpdateUserStatusResponse,
+  Promotion,
+  PromotionPayload,
+  Broadcast,
+  BroadcastDetail,
+  CreateBroadcastRequest,
+  ApiLog,
+  CardProduct,
+  CardProductPayload,
+  CardProductRequirement,
+  CardRequest,
+  CardRequestDetails,
 } from './types'
 
 export * from './config'
@@ -659,73 +670,143 @@ export function getLoanApplicationDetails(applicationId: string) {
   return request<any>(`/v1/bank-admin/loans/applications/${applicationId}`)
 }
 
-
-
-// --- Savings ---
+export function sendLoanOfferLetter(applicationId: string, payload: { recipientEmail: string | null }) {
+  return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/offer-letter`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
 
 
 // --- Transactions ---
-export function getAllTransactions(params?: Record<string, string>) {
-  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
-  return request<any>(`/v1/bank-admin/transactions/all${qs}`)
+export function getAllTransactions(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<PaginatedData<TransactionItem>>(`/v1/bank-admin/transactions/all${qs}`)
 }
 
 
 // --- Cards (New Module) ---
-export function getCardProducts(params?: Record<string, string>) {
-  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
-  return request<any>(`/v1/bank-admin/cards/products${qs}`)
+export function getCardProducts(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<CardProduct[]>(`/v1/bank-admin/cards/products${qs}`)
 }
 
-export function createCardProduct(data: any) {
-  return request<any>('/v1/bank-admin/cards/products', {
+export function createCardProduct(data: CardProductPayload) {
+  return request<{ id: string; code: string }>('/v1/bank-admin/cards/products', {
     method: 'POST',
     body: JSON.stringify(data)
   })
 }
 
-export function updateCardProduct(productId: string, data: any) {
-  return request<any>(`/v1/bank-admin/cards/products/${productId}`, {
+export function updateCardProduct(productId: string, data: CardProductPayload) {
+  return request<{ id: string; code: string }>(`/v1/bank-admin/cards/products/${productId}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   })
 }
 
-export function activateCardProduct(productId: string) {
-  return request<any>(`/v1/bank-admin/cards/products/${productId}/activate`, {
-    method: 'PATCH'
+export function activateCardProduct(productId: string, adminId: string) {
+  return request<{ id: string; active: boolean }>(`/v1/bank-admin/cards/products/${productId}/activate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId })
   })
 }
 
-export function deactivateCardProduct(productId: string) {
-  return request<any>(`/v1/bank-admin/cards/products/${productId}/deactivate`, {
-    method: 'PATCH'
+export function deactivateCardProduct(productId: string, adminId: string) {
+  return request<{ id: string; active: boolean }>(`/v1/bank-admin/cards/products/${productId}/deactivate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId })
   })
 }
 
 export function getCardProductRequirements(productId: string) {
-  return request<any>(`/v1/bank-admin/cards/products/${productId}/requirements`)
+  return request<CardProductRequirement[]>(`/v1/bank-admin/cards/products/${productId}/requirements`)
 }
 
-export function updateCardProductRequirements(productId: string, data: any) {
-  return request<any>(`/v1/bank-admin/cards/products/${productId}/requirements`, {
+export function updateCardProductRequirements(productId: string, requirements: CardProductRequirement[], adminId: string) {
+  return request<CardProductRequirement[]>(`/v1/bank-admin/cards/products/${productId}/requirements`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify({ adminId, requirements })
   })
 }
 
-export function getCardRequests(params?: Record<string, string>) {
-  const qs = params ? '?' + new URLSearchParams(params).toString() : ''
-  return request<any>(`/v1/bank-admin/cards/requests${qs}`)
+export function getCardRequests(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<PaginatedData<CardRequest>>(`/v1/bank-admin/cards/requests${qs}`)
 }
 
 export function getCardRequestDetails(requestId: string) {
-  return request<any>(`/v1/bank-admin/cards/requests/${requestId}/details`)
+  return request<CardRequestDetails>(`/v1/bank-admin/cards/requests/${requestId}/details`)
 }
 
-export function updateCardRequestStatus(requestId: string, status: string) {
-  return request<any>(`/v1/bank-admin/cards/requests/${requestId}/status`, {
+export function updateCardRequestStatus(requestId: string, status: string, adminId: string) {
+  return request<{ id: string; status: string }>(`/v1/bank-admin/cards/requests/${requestId}/status`, {
     method: 'PATCH',
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status, adminId })
+  })
+}
+
+
+// --- Promotions ---
+export function getPromotions() {
+  return request<Promotion[]>('/v1/bank-admin/promotions')
+}
+
+export function createPromotion(payload: PromotionPayload) {
+  return request<{ id: string; title: string }>('/v1/bank-admin/promotions', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updatePromotion(promotionId: string, payload: PromotionPayload) {
+  return request<{ id: string; title: string }>(`/v1/bank-admin/promotions/${promotionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  })
+}
+
+// --- Broadcasts ---
+export function getBroadcasts(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<PaginatedData<Broadcast>>(`/v1/bank-admin/broadcasts${qs}`)
+}
+
+export function createBroadcast(payload: CreateBroadcastRequest) {
+  return request<{ id: string; title: string; status: string; target: string; channel: string }>('/v1/bank-admin/broadcasts', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function sendBroadcast(broadcastId: string) {
+  return request<{ id: string; status: string; sentAt: string }>(`/v1/bank-admin/broadcasts/${broadcastId}/send`, {
+    method: 'POST'
+  })
+}
+
+export function getBroadcastDetail(broadcastId: string) {
+  return request<BroadcastDetail>(`/v1/bank-admin/broadcasts/${broadcastId}`)
+}
+
+// --- Logs ---
+export function getApiLogs(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<PaginatedData<ApiLog>>(`/v1/bank-admin/logs${qs}`)
+}
+
+export function getApiTrace(traceId: string) {
+  return request<ApiLog[]>(`/v1/bank-admin/logs/${traceId}`)
+}
+
+export function getLogViewer() {
+  return request<string>('/v1/bank-admin/log-viewer')
+}
+
+// --- Customers (New) ---
+export function syncCoreBanking() {
+  return request<any>('/v1/bank-admin/customers/sync-core-banking', {
+    method: 'POST',
+    body: JSON.stringify({})
   })
 }
