@@ -1,15 +1,20 @@
 import { useState } from 'react'
-import { Eye, Check, X as XIcon } from 'lucide-react'
+import { Eye, Check, X as XIcon, Truck, Loader2 } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { getCardRequests, getCardRequestDetails, updateCardRequestStatus } from '../../api'
+import { useAuth } from '../../context/AuthContext'
+import { getCardRequests, getCardRequestDetails, updateCardRequestStatus, dispatchCardRequest } from '../../api'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
 
 export function CardRequests() {
+  const { user } = useAuth()
   const [viewReq, setViewReq] = useState<any>(null)
   const [details, setDetails] = useState<any>(null)
+  const [courierRef, setCourierRef] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
+  const [dispatchLoading, setDispatchLoading] = useState(false)
 
   const { data, refetch } = useApi(async () => {
     const res = await getCardRequests({ size: '100' })
@@ -100,6 +105,54 @@ export function CardRequests() {
               </Button>
               <Button className="flex-1" onClick={() => updateStatus('APPROVED')}>
                 <Check size={14} /> Approve
+              </Button>
+            </div>
+          )}
+
+          {viewReq?.status === 'APPROVED' && (
+            <div className="border-t border-slate-100 pt-4 mt-2 space-y-3">
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dispatch Card</h4>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Courier Reference</label>
+                <input
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  value={courierRef}
+                  onChange={e => setCourierRef(e.target.value)}
+                  placeholder="e.g. DHL-12345678"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Expected Delivery Date</label>
+                <input
+                  type="date"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  value={deliveryDate}
+                  onChange={e => setDeliveryDate(e.target.value)}
+                />
+              </div>
+              <Button
+                fullWidth
+                disabled={!courierRef.trim() || !deliveryDate || dispatchLoading}
+                onClick={async () => {
+                  setDispatchLoading(true)
+                  try {
+                    await dispatchCardRequest(viewReq.id, {
+                      adminId: user?.adminId ?? 'admin',
+                      courierReference: courierRef.trim(),
+                      expectedDeliveryDate: deliveryDate,
+                    })
+                    setViewReq(null)
+                    setCourierRef('')
+                    setDeliveryDate('')
+                    refetch()
+                  } catch (e: any) {
+                    alert('Dispatch failed: ' + (e.message || 'Unknown error'))
+                  } finally {
+                    setDispatchLoading(false)
+                  }
+                }}
+              >
+                {dispatchLoading ? <Loader2 size={14} className="animate-spin" /> : <Truck size={14} />} Record Dispatch
               </Button>
             </div>
           )}

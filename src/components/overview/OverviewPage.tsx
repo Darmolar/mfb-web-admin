@@ -1,11 +1,11 @@
-import { Users, ShieldCheck, ArrowLeftRight, Activity, TrendingUp, AlertTriangle } from 'lucide-react'
+import { Users, ShieldCheck, ArrowLeftRight, Activity, TrendingUp, AlertTriangle, Landmark, UserCheck, Banknote } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { StatCard } from '../ui/StatCard'
 import { Card } from '../ui/Card'
 import { Badge, statusBadge } from '../ui/Badge'
 import { useApi } from '../../hooks/useApi'
-import { getKycStats, getKycPending, getComplianceStats, getTransactions } from '../../api'
-import type { KycStats, KycPendingItem, ComplianceStats, PaginatedData } from '../../api/types'
+import { getKycStats, getKycPending, getComplianceStats, getTransactions, getDashboardSummary } from '../../api'
+import type { KycStats, KycPendingItem, ComplianceStats, PaginatedData, DashboardSummary } from '../../api/types'
 import moment from 'moment'
 
 function fmt(n: number) {
@@ -41,11 +41,61 @@ export function OverviewPage() {
     return res.data
   })
 
+  const summary = useApi<DashboardSummary>(async () => {
+    const res = await getDashboardSummary()
+    return res.data
+  })
+
   const kStats = kycStats.data
   const cStats = complianceStats.data
+  const s = summary.data
 
   return (
     <div className="space-y-6">
+      {/* Platform summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          label="Total Customers"
+          value={summary.loading ? '…' : s?.totalCustomers ?? 0}
+          sub="All registered"
+          icon={<Users size={18} />}
+          accent="bg-slate-100 text-slate-600"
+          onClick={() => navigate('/customers')}
+        />
+        <StatCard
+          label="Active Accounts"
+          value={summary.loading ? '…' : s?.activeAccounts ?? 0}
+          sub="Currently active"
+          icon={<UserCheck size={18} />}
+          accent="bg-blue-50 text-blue-600"
+          onClick={() => navigate('/customers')}
+        />
+        <StatCard
+          label="Pending KYC"
+          value={summary.loading ? '…' : s?.pendingKyc ?? 0}
+          sub="Awaiting review"
+          icon={<ShieldCheck size={18} />}
+          accent="bg-amber-50 text-amber-600"
+          onClick={() => navigate('/kyc')}
+        />
+        <StatCard
+          label="Total Loan Book"
+          value={summary.loading ? '…' : s ? fmt(s.totalLoanBook ?? 0) : '…'}
+          sub="Outstanding"
+          icon={<Banknote size={18} />}
+          accent="bg-emerald-50 text-emerald-600"
+          onClick={() => navigate('/loans')}
+        />
+        <StatCard
+          label="Recent Signups"
+          value={summary.loading ? '…' : s?.recentSignups ?? 0}
+          sub="Last 7 days"
+          icon={<Landmark size={18} />}
+          accent="bg-purple-50 text-purple-600"
+          onClick={() => navigate('/customers')}
+        />
+      </div>
+
       {/* Stat cards — row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard

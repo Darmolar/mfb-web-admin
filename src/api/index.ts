@@ -86,6 +86,18 @@ import {
   type CardProductRequirement,
   type CardRequest,
   type CardRequestDetails,
+  type DashboardSummary,
+  type SyncTierRequest,
+  type UnlockAccountRequest,
+  type OtpResendRequest,
+  type OtpDispatchRequest,
+  type ResetSecurityRequest,
+  type IdentityOverrideRequest,
+  type CorporateAccountLink,
+  type IdentityDocument,
+  type ReviewIdentityDocumentRequest,
+  type LinkSignatoryRequest,
+  type CardDispatchRequest,
 } from './types'
 
 export * from './config'
@@ -808,5 +820,107 @@ export function syncCoreBanking() {
   return request<any>('/v1/bank-admin/customers/sync-core-banking', {
     method: 'POST',
     body: JSON.stringify({})
+  })
+}
+
+// ──────────────────────────────────────────────
+// Dashboard Summary
+// ──────────────────────────────────────────────
+
+export function getDashboardSummary() {
+  return request<DashboardSummary>('/v1/bank-admin/dashboard/summary')
+}
+
+// ──────────────────────────────────────────────
+// Customer Operations (New)
+// ──────────────────────────────────────────────
+
+export function syncCustomerTier(customerId: string, payload: SyncTierRequest) {
+  return request<{ id: string; tier: string }>(`/v1/bank-admin/customers/${customerId}/sync-tier`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function unlockCustomerAccount(customerId: string, payload: UnlockAccountRequest) {
+  return request<{ id: string; status: string }>(`/v1/bank-admin/customers/${customerId}/unlock`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function resendCustomerOtp(customerId: string, payload: OtpResendRequest) {
+  return request<null>(`/v1/bank-admin/customers/${customerId}/otp-resend`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function dispatchCustomerOtp(customerId: string, payload: OtpDispatchRequest) {
+  return request<null>(`/v1/bank-admin/customers/${customerId}/otp-dispatch`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function resetCustomerSecurity(customerId: string, payload: ResetSecurityRequest) {
+  return request<null>(`/v1/bank-admin/customers/${customerId}/reset-security`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function overrideCustomerIdentity(customerId: string, payload: IdentityOverrideRequest) {
+  return request<{ id: string }>(`/v1/bank-admin/customers/${customerId}/identity`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getCustomerCorporateAccounts(customerId: string) {
+  return request<CorporateAccountLink[]>(`/v1/bank-admin/customers/${customerId}/corporate-accounts`)
+}
+
+// ──────────────────────────────────────────────
+// Identity Documents
+// ──────────────────────────────────────────────
+
+export function getIdentityDocuments(params?: Record<string, string | number>) {
+  const qs = params ? buildQueryString(params) : ''
+  return request<PaginatedData<IdentityDocument>>(`/v1/bank-admin/identity/documents${qs}`)
+}
+
+export function reviewIdentityDocument(documentId: string, payload: ReviewIdentityDocumentRequest) {
+  return request<{ id: string; status: string }>(`/v1/bank-admin/identity/documents/${documentId}/review`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+// ──────────────────────────────────────────────
+// Sole Signatory
+// ──────────────────────────────────────────────
+
+export function linkCorporateSignatory(corporateId: string, payload: LinkSignatoryRequest) {
+  return request<{ id: string }>(`/v1/bank-admin/corporates/${corporateId}/link-signatory`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function unlinkCorporateSignatory(corporateId: string) {
+  return request<null>(`/v1/bank-admin/corporates/${corporateId}/link-signatory`, {
+    method: 'DELETE',
+  })
+}
+
+// ──────────────────────────────────────────────
+// Card Dispatch
+// ──────────────────────────────────────────────
+
+export function dispatchCardRequest(requestId: string, payload: CardDispatchRequest) {
+  return request<{ id: string; status: string }>(`/v1/bank-admin/cards/requests/${requestId}/dispatch`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   })
 }

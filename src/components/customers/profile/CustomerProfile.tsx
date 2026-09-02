@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowLeft, MessageSquare, Flag, Lock, Unlock, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { ArrowLeft, MessageSquare, Flag, Lock, Unlock, Loader2, MoreHorizontal, RefreshCw, KeyRound, Send, ShieldOff, LockOpen } from 'lucide-react'
 import { Badge, statusBadge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { TabBar } from '../../ui/TabBar'
@@ -11,7 +11,7 @@ import { KYCDocuments } from './KYCDocuments'
 import { AuditLogsTab } from './AuditLogsTab'
 import { useApi } from '../../../hooks/useApi'
 import { useAuth } from '../../../context/AuthContext'
-import { getCustomerDetail, updateCustomerStatus } from '../../../api'
+import { getCustomerDetail, updateCustomerStatus, syncCustomerTier, unlockCustomerAccount, resendCustomerOtp, dispatchCustomerOtp, resetCustomerSecurity } from '../../../api'
 import type { CustomerDetail } from '../../../api/types'
 
 const tabs = [
@@ -35,6 +35,17 @@ export function CustomerProfile({ customerId, onBack }: Props) {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('personal')
   const [statusLoading, setStatusLoading] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const detail = useApi<CustomerDetail>(async () => {
     const res = await getCustomerDetail(customerId)
@@ -77,6 +88,28 @@ export function CustomerProfile({ customerId, onBack }: Props) {
   const handleMessage = () => {
     alert('Messaging endpoint is not currently supported by the backend.')
   }
+
+  const runAction = async (key: string, fn: () => Promise<unknown>) => {
+    setActionLoading(key)
+    setMoreOpen(false)
+    try {
+      await fn()
+      detail.refetch()
+      alert(`${key} completed successfully.`)
+    } catch (e: any) {
+      alert(`${key} failed: ${e.message || 'Unknown error'}`)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const moreActions = [
+    { key: 'Sync KYC Tier', icon: <RefreshCw size={13} />, fn: () => syncCustomerTier(customerId, { adminId: user!.adminId }) },
+    { key: 'Resend OTP', icon: <Send size={13} />, fn: () => resendCustomerOtp(customerId, { adminId: user!.adminId }) },
+    { key: 'Dispatch OTP', icon: <KeyRound size={13} />, fn: () => dispatchCustomerOtp(customerId, { adminId: user!.adminId, channel: 'sms' }) },
+    { key: 'Reset Security', icon: <ShieldOff size={13} />, fn: () => resetCustomerSecurity(customerId, { adminId: user!.adminId }) },
+    { key: 'Unlock Rate-Limit', icon: <LockOpen size={13} />, fn: () => unlockCustomerAccount(customerId, { adminId: user!.adminId }) },
+  ]
 
   if (detail.loading) {
     return (
@@ -136,6 +169,24 @@ export function CustomerProfile({ customerId, onBack }: Props) {
             </Button>
             <Button variant="secondary" size="sm" onClick={handleMessage}><MessageSquare size={13} /> Message</Button>
             <Button variant="secondary" size="sm" onClick={handleFlag}><Flag size={13} /> Flag</Button>
+            <div className="relative" ref={moreRef}>
+              <Button variant="secondary" size="sm" onClick={() => setMoreOpen(o => !o)} disabled={!!actionLoading}>
+                {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <MoreHorizontal size={13} />} More
+              </Button>
+              {moreOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
+                  {moreActions.map(a => (
+                    <button
+                      key={a.key}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                      onClick={() => { if (confirm(`Are you sure you want to ${a.key}?`)) runAction(a.key, a.fn) }}
+                    >
+                      {a.icon} {a.key}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1.5">

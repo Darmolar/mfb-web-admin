@@ -750,6 +750,97 @@ export type ReferenceSector = {
 }
 
 // ──────────────────────────────────────────────
+// Dashboard Summary
+// ──────────────────────────────────────────────
+
+export type DashboardSummary = {
+  totalCustomers: number
+  activeAccounts: number
+  pendingKyc: number
+  complianceFlags: number
+  totalLoanBook: number
+  recentSignups: number
+}
+
+// ──────────────────────────────────────────────
+// Customer Operations (New)
+// ──────────────────────────────────────────────
+
+export type SyncTierRequest = {
+  adminId: string
+}
+
+export type UnlockAccountRequest = {
+  adminId: string
+}
+
+export type OtpResendRequest = {
+  adminId: string
+}
+
+export type OtpDispatchRequest = {
+  adminId: string
+  channel: 'email' | 'sms'
+}
+
+export type ResetSecurityRequest = {
+  adminId: string
+}
+
+export type IdentityOverrideRequest = {
+  adminId: string
+  firstName?: string
+  lastName?: string
+  dateOfBirth?: string
+  residentialAddress?: string
+}
+
+export type CorporateAccountLink = {
+  id: string
+  accountNumber: string
+  accountName: string
+  status: string
+}
+
+// ──────────────────────────────────────────────
+// Identity Documents
+// ──────────────────────────────────────────────
+
+export type IdentityDocument = {
+  id: string
+  customerId: string
+  customerName?: string
+  documentType: string
+  status: string
+  submittedAt: string
+}
+
+export type ReviewIdentityDocumentRequest = {
+  adminId: string
+  decision: 'approve' | 'reject'
+  reason?: string
+}
+
+// ──────────────────────────────────────────────
+// Sole Signatory
+// ──────────────────────────────────────────────
+
+export type LinkSignatoryRequest = {
+  customerId: string
+  adminId: string
+}
+
+// ──────────────────────────────────────────────
+// Card Dispatch
+// ──────────────────────────────────────────────
+
+export type CardDispatchRequest = {
+  adminId: string
+  courierReference: string
+  expectedDeliveryDate: string
+}
+
+// ──────────────────────────────────────────────
 // Promotions
 // ──────────────────────────────────────────────
 export type Promotion = {
