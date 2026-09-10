@@ -966,3 +966,50 @@ export type CardRequestDetails = {
   status: string
   deliveryAddress: string
 }
+
+// ──────────────────────────────────────────────
+// Identity provider settings
+// ──────────────────────────────────────────────
+
+export type IdentityProvider = 'ISW' | 'NIBSS'
+
+/** Raw key/value map returned by GET /v1/bank-admin/settings/identity/providers */
+export type IdentityProviderSettings = {
+  'identity.provider.bvn'?: IdentityProvider | string
+  'identity.provider.nin'?: IdentityProvider | string
+  'identity.provider.face'?: IdentityProvider | string
+  'identity.face.threshold'?: string | number
+  [key: string]: string | number | undefined
+}
+
+// ──────────────────────────────────────────────
+// Admin push notifications
+// ──────────────────────────────────────────────
+
+export type PushData = Record<string, string>
+
+export type CustomerPushRequest = {
+  customerId?: string
+  accountNumber?: string
+  title: string
+  body: string
+  data?: PushData
+  saveInApp?: boolean
+}
+
+export type CustomerPushResponse = {
+  customerId: string
+  accountNumber: string
+  /** 0 means no device tokens registered; in-app copy still saved if saveInApp */
+  tokenCount: number
+}
+
+export type PushBroadcastRequest = {
+  title: string
+  body: string
+  data?: PushData
+  status?: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED'
+  accountTier?: 1 | 2 | 3
+  platform?: 'ANDROID' | 'IOS' | 'WEB'
+  saveInApp?: boolean
+}

@@ -1,5 +1,7 @@
 import { ADMIN_API_KEY, API_BASE_URL } from './config'
 import type {
+  IdentityProvider, IdentityProviderSettings,
+  CustomerPushRequest, CustomerPushResponse, PushBroadcastRequest,
   Role,
   Permission,
   SavingsProduct,
@@ -921,6 +923,56 @@ export function unlinkCorporateSignatory(corporateId: string) {
 export function dispatchCardRequest(requestId: string, payload: CardDispatchRequest) {
   return request<{ id: string; status: string }>(`/v1/bank-admin/cards/requests/${requestId}/dispatch`, {
     method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+// --- Identity provider settings ---
+export function getIdentityProviderSettings() {
+  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers')
+}
+
+export function setBvnProvider(provider: IdentityProvider) {
+  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers/bvn', {
+    method: 'PUT',
+    body: JSON.stringify({ provider }),
+  })
+}
+
+/** NIN verification is ISW-only on the backend. */
+export function setNinProvider(provider: 'ISW') {
+  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers/nin', {
+    method: 'PUT',
+    body: JSON.stringify({ provider }),
+  })
+}
+
+export function setFaceProvider(provider: IdentityProvider) {
+  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers/face', {
+    method: 'PUT',
+    body: JSON.stringify({ provider }),
+  })
+}
+
+export function setFaceMatchThreshold(threshold: number) {
+  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/face-threshold', {
+    method: 'PUT',
+    body: JSON.stringify({ threshold }),
+  })
+}
+
+// --- Push notifications (admin) ---
+export function sendCustomerPush(payload: CustomerPushRequest) {
+  return request<CustomerPushResponse>('/v1/bank-admin/push/customer', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Returns 202; dispatch is asynchronous on the backend. */
+export function sendPushBroadcast(payload: PushBroadcastRequest) {
+  return request<unknown>('/v1/bank-admin/push/broadcast', {
+    method: 'POST',
     body: JSON.stringify(payload),
   })
 }

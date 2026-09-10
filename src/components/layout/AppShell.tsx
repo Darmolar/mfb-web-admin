@@ -15,7 +15,7 @@ import { CardsPage } from '../cards/CardsPage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
 import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
-// Removed SettingsPage import
+import { SettingsPage } from '../settings/SettingsPage'
 
 import { Routes, Route } from 'react-router-dom'
 import { LoanApplicationDetailsPage } from '../loans/LoanApplicationDetailsPage'
@@ -40,7 +40,7 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   activity: <ActivityLogsPage />,
   governance: <GovernancePage />,
   admins: <AdminsPage />,
-  // settings: <SettingsPage />,
+  settings: <SettingsPage />,
 }
 
 export function AppShell() {

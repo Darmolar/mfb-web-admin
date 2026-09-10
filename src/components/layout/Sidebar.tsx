@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
   ScrollText, Scale, LogOut, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard
+  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Settings
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -9,13 +9,13 @@ import { useAuth } from '../../context/AuthContext'
 export type SectionId =
   | 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight'
   | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards'
-  | 'activity' | 'governance' | 'admins' 
+  | 'activity' | 'governance' | 'admins' | 'settings'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SECTION_IDS: SectionId[] = [
   'overview', 'kyc', 'customers', 'corporate', 'oversight',
   'compliance', 'loans', 'savings', 'queue', 'cards',
-  'activity', 'governance', 'admins', 
+  'activity', 'governance', 'admins', 'settings',
 ]
 
 interface NavItem {
@@ -39,7 +39,7 @@ const navItems: NavItem[] = [
   { id: 'activity', label: 'Activity Logs', icon: <ScrollText size={18} /> },
   { id: 'governance', label: 'Governance', icon: <Scale size={18} /> },
   { id: 'admins', label: 'Admin Management', icon: <UserCog size={18} /> },
-  // { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+  { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
 ]
 
 interface SidebarProps {

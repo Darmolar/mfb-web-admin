@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Flag, Lock, Unlock, Loader2 } from 'lucide-react'
+import { ArrowLeft, Flag, Lock, Unlock, Loader2, BellRing } from 'lucide-react'
 import { Badge, statusBadge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { TabBar } from '../../ui/TabBar'
@@ -9,6 +9,7 @@ import { TransactionHistory } from './TransactionHistory'
 import { SecurityDevices } from './SecurityDevices'
 import { KYCDocuments } from './KYCDocuments'
 import { AuditLogsTab } from './AuditLogsTab'
+import { SendPushModal } from '../../push/SendPushModal'
 import { useApi } from '../../../hooks/useApi'
 import { useAuth } from '../../../context/AuthContext'
 import { getCustomerDetail, updateCustomerStatus } from '../../../api'
@@ -35,6 +36,7 @@ export function CustomerProfile({ customerId, onBack }: Props) {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('personal')
   const [statusLoading, setStatusLoading] = useState(false)
+  const [pushOpen, setPushOpen] = useState(false)
   const detail = useApi<CustomerDetail>(async () => {
     const res = await getCustomerDetail(customerId)
     return res.data
@@ -129,6 +131,7 @@ export function CustomerProfile({ customerId, onBack }: Props) {
                   : <><Unlock size={13} /> Unlock Account</>
               }
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => setPushOpen(true)}><BellRing size={13} /> Send Push</Button>
             <Button variant="secondary" size="sm" onClick={handleFlag}><Flag size={13} /> Flag</Button>
           </div>
         </div>
@@ -140,6 +143,14 @@ export function CustomerProfile({ customerId, onBack }: Props) {
       </div>
 
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} variant="underline" />
+
+      <SendPushModal
+        open={pushOpen}
+        onClose={() => setPushOpen(false)}
+        customerId={customerId}
+        customerName={displayName}
+        accountNumber={c.accountNumber}
+      />
 
       {activeTab === 'personal' && <PersonalInfo customer={c} />}
       {activeTab === 'accounts' && <AccountsLimits customer={c} />}

@@ -1,29 +1,20 @@
 import { useState } from 'react'
 import { TabBar } from '../ui/TabBar'
-import { ProfileSettings } from './ProfileSettings'
-import { GeneralSettings } from './GeneralSettings'
-import { SecuritySettings } from './SecuritySettings'
-import { NotificationSettings } from './NotificationSettings'
-import { AuditLogSettings } from './AuditLogSettings'
+import { IdentityProviderSettings } from './IdentityProviderSettings'
+import { PushBroadcast } from './PushBroadcast'
 
 const tabs = [
-  { id: 'profile', label: 'My Profile' },
-  { id: 'general', label: 'General' },
-  { id: 'security', label: 'Security' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'logs', label: 'Audit Log' },
+  { id: 'identity', label: 'Identity Providers' },
+  { id: 'push', label: 'Push Broadcast' },
 ]
 
 export function SettingsPage() {
-  const [active, setActive] = useState('profile')
+  const [active, setActive] = useState('identity')
   return (
     <div className="space-y-6">
       <TabBar tabs={tabs} active={active} onChange={setActive} />
-      {active === 'profile' && <ProfileSettings />}
-      {active === 'general' && <GeneralSettings />}
-      {active === 'security' && <SecuritySettings />}
-      {active === 'notifications' && <NotificationSettings />}
-      {active === 'logs' && <AuditLogSettings />}
+      {active === 'identity' && <IdentityProviderSettings />}
+      {active === 'push' && <PushBroadcast />}
     </div>
   )
 }
