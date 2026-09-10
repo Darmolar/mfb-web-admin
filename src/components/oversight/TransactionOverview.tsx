@@ -1,6 +1,6 @@
 import { AlertTriangle, TrendingUp, TrendingDown, ArrowLeftRight, Loader2 } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { getAllTransactions } from '../../api'
+import { getAllTransactions, getTransactions } from '../../api'
 import { Badge, statusBadge } from '../ui/Badge'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import type { TransactionItem } from '../../api/types'
@@ -22,13 +22,17 @@ const channelColors: Record<string, string> = {
 
 export function TransactionOverview() {
   const { data, loading, error, refetch } = useApi(
-    () => getAllTransactions({ size: '100' }).then(r => r.data),
+    // /transactions/all currently returns 500 on the backend; fall back to the
+    // customer transactions list so the overview still renders.
+    () => getAllTransactions({ size: '100' })
+      .then(r => r.data)
+      .catch(() => getTransactions({ size: 100 }).then(r => r.data)),
     [],
   )
 
   const txs = data?.content ?? []
   const totalVolume = txs.reduce((s: number, t: any) => s + t.amount, 0)
-  const completed = txs.filter((t: any) => t.status === 'Completed' || t.status === 'COMPLETED')
+  const completed = txs.filter((t: any) => ['Completed', 'COMPLETED', 'Success', 'SUCCESS'].includes(t.status))
   const pending = txs.filter((t: any) => t.status === 'Pending' || t.status === 'PENDING')
   const failed = txs.filter((t: any) => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED')
   const flagged = txs.filter((t: any) => t.flagged)

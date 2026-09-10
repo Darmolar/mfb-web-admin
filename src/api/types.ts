@@ -450,6 +450,7 @@ export type FailedJob = {
 }
 
 export type FailedJobListParams = {
+  status?: string
   page?: number
   size?: number
 }
@@ -485,6 +486,9 @@ export type TransactionItem = {
   customer?: { id: string }
   failureReason?: string
   flagged?: boolean
+  latitude?: number
+  longitude?: number
+  location?: string
 }
 
 export type CorporateTransferItem = {
@@ -626,6 +630,23 @@ export type SavingsProductPayload = {
   maxDurationDays: number
   active: boolean
   adminId: string
+  // Optional interest / lock-in / overdraft controls (added in updated API docs)
+  interestRateType?: string
+  compoundingPeriod?: string
+  interestPostingPeriodType?: string
+  interestCalculationType?: string
+  automaticOpeningBalance?: number
+  minimumBalanceForInterestCalculation?: number
+  lockinPeriod?: number
+  lockinType?: string
+  minimumBalance?: number
+  allowOverdraft?: boolean
+  overdraftLimit?: number | null
+  overdraftInterestRate?: number | null
+  minimumOverdraftForInterest?: number | null
+  daysInYear?: string
+  daysInMonth?: string
+  accountingRule?: string
 }
 
 export type SavingsGoal = {

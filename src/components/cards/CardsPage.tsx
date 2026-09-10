@@ -3,7 +3,6 @@ import { CreditCard } from 'lucide-react'
 import { TabBar } from '../ui/TabBar'
 import { CardProducts } from './CardProducts'
 import { CardRequests } from './CardRequests'
-import { IssuedCards } from './IssuedCards'
 
 export function CardsPage() {
   const [activeTab, setActiveTab] = useState('products')
@@ -24,7 +23,6 @@ export function CardsPage() {
         tabs={[
           { id: 'products', label: 'Card Products' },
           { id: 'requests', label: 'Card Requests' },
-          { id: 'issued', label: 'Issued Cards' },
         ]}
         active={activeTab}
         onChange={setActiveTab}
@@ -32,7 +30,6 @@ export function CardsPage() {
 
       {activeTab === 'products' && <CardProducts />}
       {activeTab === 'requests' && <CardRequests />}
-      {activeTab === 'issued' && <IssuedCards />}
     </div>
   )
 }

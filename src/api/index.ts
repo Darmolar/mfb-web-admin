@@ -407,7 +407,7 @@ export function getQueueStats() {
 }
 
 export function getFailedJobs(params: FailedJobListParams = {}) {
-  const qs = buildQueryString({ page: params.page ?? 0, size: params.size ?? 20 })
+  const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 20 })
   return request<PaginatedData<FailedJob>>(`/v1/admin/queue/failed${qs}`)
 }
 
@@ -641,7 +641,7 @@ export function getMyPermissions() {
   return request<any>('/v1/bank-admin/roles/my-permissions')
 }
 
-export function updateRolePermissions(roleId: string, data: any) {
+export function updateRolePermissions(roleId: string, data: { permissions: string[]; adminId: string }) {
   return request<any>(`/v1/bank-admin/roles/${roleId}/permissions`, {
     method: 'PUT',
     body: JSON.stringify(data)

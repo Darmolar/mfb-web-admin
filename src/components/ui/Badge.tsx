@@ -32,5 +32,7 @@ export function statusBadge(status: string) {
     Unverified: 'gray', Missing: 'gray', Low: 'green', Medium: 'amber', High: 'red',
     'Tier 1': 'slate', 'Tier 2': 'blue', 'Tier 3': 'purple',
   }
-  return map[status] ?? 'gray'
+  if (map[status]) return map[status]
+  const key = Object.keys(map).find(k => k.toLowerCase() === String(status ?? '').toLowerCase())
+  return key ? map[key] : 'gray'
 }

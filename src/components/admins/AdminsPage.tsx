@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react'
+import { Plus, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import {
-  getAdminUsers, createAdminUser, updateAdminUser,
-  updateAdminUserStatus, deleteAdminUser,
+  getAdminUsers, createAdminUser,
+  updateAdminUserStatus,
 } from '../../api'
 import type { AdminUser } from '../../api'
 import { useAuth } from '../../context/AuthContext'
@@ -35,7 +35,6 @@ const DEPARTMENTS = [
 const STATUS_FILTERS = ['ALL', 'ACTIVE', 'INACTIVE', 'SUSPENDED']
 
 const EMPTY_CREATE = { name: '', email: '', password: '', role: ROLES[1], department: DEPARTMENTS[0] }
-const EMPTY_EDIT = { name: '', role: ROLES[1], department: DEPARTMENTS[0] }
 
 function adminCode(id: string) {
   return `ADM-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
@@ -81,33 +80,6 @@ export function AdminsPage() {
     }
   }
 
-  const [editTarget, setEditTarget] = useState<AdminUser | null>(null)
-  const [editForm, setEditForm] = useState(EMPTY_EDIT)
-  const [editing, setEditing] = useState(false)
-  const [editError, setEditError] = useState<string | null>(null)
-
-  function openEdit(admin: AdminUser) {
-    setEditTarget(admin)
-    setEditForm({ name: admin.name, role: admin.role, department: admin.department })
-    setEditError(null)
-  }
-
-  async function handleEdit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!editTarget || !user) return
-    setEditing(true)
-    setEditError(null)
-    try {
-      await updateAdminUser(editTarget.id, { ...editForm, adminId: user.adminId })
-      setEditTarget(null)
-      refetch()
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : 'Failed to update admin')
-    } finally {
-      setEditing(false)
-    }
-  }
-
   async function handleToggleStatus(admin: AdminUser) {
     if (!user) return
     const next = admin.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
@@ -117,25 +89,6 @@ export function AdminsPage() {
       refetch()
     } finally {
       setTogglingId(null)
-    }
-  }
-
-  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setDeleting(true)
-    setDeleteError(null)
-    try {
-      await deleteAdminUser(deleteTarget.id)
-      setDeleteTarget(null)
-      refetch()
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete admin')
-    } finally {
-      setDeleting(false)
     }
   }
 
@@ -201,13 +154,6 @@ export function AdminsPage() {
       cell: (admin) => (
         <div className="flex items-center gap-1">
           <button
-            onClick={() => openEdit(admin)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
-            title="Edit"
-          >
-            <Pencil size={13} />
-          </button>
-          <button
             onClick={() => handleToggleStatus(admin)}
             disabled={togglingId === admin.id}
             className={`w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
@@ -218,13 +164,6 @@ export function AdminsPage() {
             title={admin.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
           >
             {admin.status === 'ACTIVE' ? <ShieldOff size={13} /> : <ShieldCheck size={13} />}
-          </button>
-          <button
-            onClick={() => { setDeleteTarget(admin); setDeleteError(null) }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 cursor-pointer"
-            title="Delete"
-          >
-            <Trash2 size={13} />
           </button>
         </div>
       ),
@@ -313,62 +252,6 @@ export function AdminsPage() {
         </form>
       </Modal>
 
-      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Admin User" width="max-w-lg">
-        {editTarget && (
-          <form onSubmit={handleEdit} className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-2">
-              <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center">
-                <span className="text-sm font-black text-white">{editTarget.name.charAt(0)}</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-700">{editTarget.name}</p>
-                <p className="text-[11px] font-mono text-slate-400">{adminCode(editTarget.id)}</p>
-              </div>
-            </div>
-            <AdminField label="Full Name" required>
-              <input className={inputCls} value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} required />
-            </AdminField>
-            <div className="grid grid-cols-2 gap-4">
-              <AdminField label="Role" required>
-                <select className={inputCls} value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))} required>
-                  {ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
-                </select>
-              </AdminField>
-              <AdminField label="Department" required>
-                <select className={inputCls} value={editForm.department} onChange={e => setEditForm(p => ({ ...p, department: e.target.value }))} required>
-                  {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </AdminField>
-            </div>
-            {editError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{editError}</p>}
-            <div className="flex gap-3 pt-1">
-              <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditTarget(null)}>Cancel</Button>
-              <Button type="submit" className="flex-1" disabled={editing}>{editing ? 'Saving…' : 'Save Changes'}</Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Remove Admin User" width="max-w-sm">
-        {deleteTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Are you sure you want to permanently remove <span className="font-bold text-slate-800">{deleteTarget.name}</span>
-              {' '}(<span className="font-mono text-xs">{adminCode(deleteTarget.id)}</span>) from the admin portal?
-            </p>
-            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-              This action cannot be undone. The admin will immediately lose all access.
-            </p>
-            {deleteError && <p className="text-xs text-red-600">{deleteError}</p>}
-            <div className="flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-              <Button variant="danger" className="flex-1" onClick={handleDelete} disabled={deleting}>
-                {deleting ? 'Removing…' : 'Remove Admin'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </>
   )
 }

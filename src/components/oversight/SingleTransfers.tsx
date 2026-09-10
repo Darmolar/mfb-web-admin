@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, AlertTriangle, Loader2 } from 'lucide-react'
+import { Download, AlertTriangle, Loader2, MapPin } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -11,6 +11,18 @@ import moment from 'moment'
 
 function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
+// Default coordinates (Lagos, Nigeria) used when a transaction has no captured location.
+const DEFAULT_COORDS = { lat: 6.5244, lng: 3.3792 }
+
+function coords(t: TransactionItem): { lat: number; lng: number; isDefault: boolean } {
+  if (t.latitude != null && t.longitude != null) return { lat: t.latitude, lng: t.longitude, isDefault: false }
+  if (t.location) {
+    const [a, b] = t.location.split(',').map(s => parseFloat(s.trim()))
+    if (Number.isFinite(a) && Number.isFinite(b)) return { lat: a, lng: b, isDefault: false }
+  }
+  return { ...DEFAULT_COORDS, isDefault: true }
+}
+
 export function SingleTransfers() {
   const [selected, setSelected] = useState<TransactionItem | null>(null)
 
@@ -19,7 +31,7 @@ export function SingleTransfers() {
     [],
   )
 
-  const txs = (data?.content ?? []).filter(t => t.transferType === 'TO_OTHER_BANK' || t.transferType === 'INTERNAL_TRANSFER' || t.transferType === 'TRANSFER')
+  const txs = (data?.content ?? []).filter(t => ['TO_OTHER_BANK', 'INTERNAL', 'INTERNAL_TRANSFER', 'TRANSFER'].includes(t.transferType))
 
   const pendingCount = txs.filter(t => t.status === 'Pending' || t.status === 'PENDING').length
   const failedCount  = txs.filter(t => t.status === 'Failed' || t.status === 'FAILED' || t.status === 'Reversed' || t.status === 'REVERSED').length
@@ -139,6 +151,34 @@ export function SingleTransfers() {
                 </div>
               ))}
             </div>
+
+            {(() => {
+              const c = coords(selected)
+              return (
+                <div className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">User Location</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                        <MapPin size={13} className="text-slate-400" />
+                        <span>Lat {c.lat.toFixed(4)}, Lng {c.lng.toFixed(4)}</span>
+                      </div>
+                      {c.isDefault && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">Default location (Lagos, Nigeria) — not captured for this transaction</p>
+                      )}
+                    </div>
+                    <a
+                      href={`https://www.google.com/maps?q=${c.lat},${c.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-blue-600 hover:underline whitespace-nowrap"
+                    >
+                      View on Google Maps
+                    </a>
+                  </div>
+                </div>
+              )
+            })()}
 
             {selected.failureReason && (
               <div className="bg-red-50 rounded-xl p-3">

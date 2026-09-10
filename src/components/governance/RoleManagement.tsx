@@ -9,8 +9,10 @@ import { updateRolePermissions, deleteRole, updateRole } from '../../api'
 // NOTE: Since I don't have getRoles defined explicitly in the new batch, I'll assume getRoles exists or I'll just use a direct fetch. 
 // Ah, index.ts actually has `getRoles` already: `export function getRoles() { return request<PaginatedData<Role>>('/v1/bank-admin/roles') }`
 import { getRoles } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 
 export function RoleManagement() {
+  const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [editRole, setEditRole] = useState<any>(null)
   const [permissionsModal, setPermissionsModal] = useState<any>(null)
@@ -69,7 +71,8 @@ export function RoleManagement() {
   const savePermissions = async () => {
     try {
       const parsed = JSON.parse(permsInput)
-      await updateRolePermissions(permissionsModal.id, parsed)
+      if (!Array.isArray(parsed)) throw new Error('Expected a JSON array of permission codes')
+      await updateRolePermissions(permissionsModal.id, { permissions: parsed, adminId: user!.adminId })
       setPermissionsModal(null)
       alert('Permissions updated')
     } catch (err) {

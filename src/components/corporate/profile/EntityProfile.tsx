@@ -13,9 +13,7 @@ import { CorporateUsers } from './CorporateUsers'
 import { CorpTransactionHistory } from './CorpTransactionHistory'
 import { LoginHistory } from './LoginHistory'
 import { AuditTrail } from './AuditTrail'
-import { ApprovalWorkflows } from './ApprovalWorkflows'
 import { CorporateLimits } from './CorporateLimits'
-import { RoleFramework } from './RoleFramework'
 
 const tabs = [
   { id: 'accounts', label: 'Institutional Accounts' },
@@ -23,9 +21,7 @@ const tabs = [
   { id: 'transactions', label: 'Transaction History' },
   { id: 'logins', label: 'Login History' },
   { id: 'audit', label: 'Audit Trail' },
-  { id: 'workflow', label: 'Approval Workflows' },
   { id: 'limits', label: 'Corporate Limits' },
-  { id: 'roles', label: 'Role Framework' },
 ]
 
 interface Props {
@@ -119,9 +115,7 @@ export function EntityProfile({ corporateId, onBack }: Props) {
       {activeTab === 'transactions'  && <CorpTransactionHistory corporateId={corporateId} />}
       {activeTab === 'logins'        && <LoginHistory corporateId={corporateId} />}
       {activeTab === 'audit'         && <AuditTrail corporateId={corporateId} />}
-      {activeTab === 'workflow'      && <ApprovalWorkflows />}
       {activeTab === 'limits'        && <CorporateLimits detail={detail} />}
-      {activeTab === 'roles'         && <RoleFramework />}
 
       <Modal open={linkModal} onClose={() => setLinkModal(false)} title="Link Sole Signatory" width="max-w-sm">
         <div className="space-y-4">
