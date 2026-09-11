@@ -113,7 +113,7 @@ export function IdentityProviderSettings() {
           value={nin}
           options={['ISW']}
           disabled={saving === 'nin' || nin === 'ISW'}
-          onChange={p => run('nin', () => setNinProvider(p), 'NIN provider set to ISW.')}
+          onChange={() => run('nin', () => setNinProvider('ISW'), 'NIN provider set to ISW.')}
         />
       ),
     },
