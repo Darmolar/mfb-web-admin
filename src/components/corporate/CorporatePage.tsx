@@ -1,3 +1,4 @@
+import { allPages } from '../../api/pagination'
 import { useState } from 'react'
 import { ChevronRight, Plus, RefreshCw } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
@@ -5,7 +6,7 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
-import { getCorporates, createCorporate, getStates, getTowns, getSectors } from '../../api'
+import { getCorporates, createCorporate, getStates, getTowns, getSectors, getAdminUsers } from '../../api'
 import type { CorporateListItem, CreateCorporateRequest } from '../../api'
 import { EntityProfile } from './profile/EntityProfile'
 import { useAuth } from '../../context/AuthContext'
@@ -17,34 +18,6 @@ const EMPTY_FORM: Omit<CreateCorporateRequest, 'adminId'> = {
   incorporationDate: '', bvn: '', acctOfficer: '',
 }
 
-const DEMO_STATES = [
-  { code: 'LAG', name: 'Lagos' },
-  { code: 'ABJ', name: 'Abuja' },
-  { code: 'KNO', name: 'Kano' },
-]
-
-const DEMO_TOWNS = [
-  { code: 'IKE', name: 'Ikeja', stateCode: 'LAG' },
-  { code: 'VI', name: 'Victoria Island', stateCode: 'LAG' },
-  { code: 'WUS', name: 'Wuse', stateCode: 'ABJ' },
-  { code: 'GAR', name: 'Garki', stateCode: 'ABJ' },
-  { code: 'KMC', name: 'Kano Municipal', stateCode: 'KNO' },
-]
-
-const DEMO_SECTORS = [
-  { code: 'FIN', name: 'Finance' },
-  { code: 'TECH', name: 'Technology' },
-  { code: 'AGR', name: 'Agriculture' },
-  { code: 'EDU', name: 'Education' },
-  { code: 'HLT', name: 'Healthcare' },
-]
-
-const DEMO_ADMINS = [
-  { id: 'ADM001', name: 'John Doe' },
-  { id: 'ADM002', name: 'Jane Smith' },
-  { id: 'ADM003', name: 'Mike Johnson' },
-]
-
 export function CorporatePage() {
   const { user } = useAuth()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -55,22 +28,24 @@ export function CorporatePage() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   const { data, loading, error, refetch } = useApi(
-    () => getCorporates({ size: 100 }).then(r => r.data),
+    () => allPages(page => getCorporates({ page, size: 100 })),
     [],
   )
 
-  const { data: statesRes } = useApi(() => getStates(), [])
-  const { data: townsRes } = useApi(() => getTowns(), [])
-  const { data: sectorsRes } = useApi(() => getSectors(), [])
+  const { data: statesRes } = useApi(() => allPages(page => getStates(page)), [])
+  const { data: townsRes } = useApi(() => allPages(page => getTowns(page)), [])
+  const { data: sectorsRes } = useApi(() => allPages(page => getSectors(page)), [])
 
-  const apiStates = statesRes?.data?.content ?? []
-  const apiTowns = townsRes?.data?.content ?? []
-  const apiSectors = sectorsRes?.data?.content ?? []
+  const officers = useApi(() => allPages(page => getAdminUsers({ page, size: 100, status: 'ACTIVE' })), [])
+  const apiStates = statesRes?.content ?? []
+  const apiTowns = townsRes?.content ?? []
+  const apiSectors = sectorsRes?.content ?? []
 
-  const states = apiStates.length > 0 ? apiStates : DEMO_STATES
-  const towns = apiTowns.length > 0 ? apiTowns : DEMO_TOWNS
-  const sectors = apiSectors.length > 0 ? apiSectors : DEMO_SECTORS
-  const admins = DEMO_ADMINS
+  const states = apiStates
+  const towns = apiTowns
+  const sectors = apiSectors
+  const admins = officers.data?.content ?? []
+  const referenceReady = states.length > 0 && towns.length > 0 && sectors.length > 0 && admins.length > 0
 
 
   if (selectedId) return <EntityProfile corporateId={selectedId} onBack={() => setSelectedId(null)} />
@@ -83,7 +58,8 @@ export function CorporatePage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!user) return
+    if (!user || creating) return
+    if (!referenceReady || !admins.some(a => a.id === form.acctOfficer)) { setCreateError('Required reference data is unavailable. Reload before submitting.'); return }
     setCreating(true)
     setCreateError(null)
     try {
@@ -153,6 +129,7 @@ export function CorporatePage() {
 
   return (
     <>
+      {!referenceReady && <p role="status" className="text-amber-700 text-sm">Corporate creation is unavailable until states, towns, sectors and account officers have loaded. {officers.error}</p>}
       {notification && (
         <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
           notification.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'
@@ -263,7 +240,7 @@ export function CorporatePage() {
           {createError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{createError}</p>}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button type="submit" className="flex-1" disabled={creating}>{creating ? 'Creating…' : 'Create Corporate Profile'}</Button>
+            <Button type="submit" className="flex-1" disabled={creating || !referenceReady}>{creating ? 'Creating…' : 'Create Corporate Profile'}</Button>
           </div>
         </form>
       </Modal>

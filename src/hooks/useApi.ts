@@ -27,26 +27,31 @@ export function useApi<T>(
   })
 
   // Keep fetcher ref stable to avoid re-triggering on every render
+  const generation = useRef(0)
   const fetcherRef = useRef(fetcher)
   useEffect(() => {
     fetcherRef.current = fetcher
   }, [fetcher])
 
   const refetch = useCallback(async () => {
+    const request = ++generation.current
     setState(prev => ({ ...prev, loading: true, error: null }))
     try {
       const data = await fetcherRef.current()
-      setState({ data, loading: false, error: null })
+      if (request === generation.current) setState({ data, loading: false, error: null })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
-      setState(prev => ({ ...prev, loading: false, error: message }))
+      if (request === generation.current) setState(prev => ({ ...prev, loading: false, error: message }))
     }
   }, [])
+
+  const cancelPending = useCallback(() => { generation.current++ }, [])
 
   useEffect(() => {
     if (deps === null) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refetch()
+    return cancelPending
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps === null ? [] : deps)
 

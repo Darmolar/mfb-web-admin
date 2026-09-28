@@ -10,6 +10,7 @@ import { updateRolePermissions, deleteRole, updateRole } from '../../api'
 // Ah, index.ts actually has `getRoles` already: `export function getRoles() { return request<PaginatedData<Role>>('/v1/bank-admin/roles') }`
 import { getRoles } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import { PUBLIC_API_KEY } from '../../api/config'
 
 export function RoleManagement() {
   const { user } = useAuth()
@@ -36,7 +37,7 @@ export function RoleManagement() {
         // Need to create role, assuming a generic POST
         await fetch('http://163.245.209.118:8080/api/v1/bank-admin/roles', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Key': 'ixuJ2ZPSkAFSsJHqG09KheGZ' },
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': PUBLIC_API_KEY, 'X-Admin-Key': 'ixuJ2ZPSkAFSsJHqG09KheGZ' },
           body: JSON.stringify(draft)
         })
         setShowForm(false)

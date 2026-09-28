@@ -11,6 +11,7 @@ const sectionTitles: Record<string, string> = {
   governance: 'Governance',
   admins: 'Admin Management',
   settings: 'Settings',
+  complaints: 'Complaints',
 }
 
 interface TopBarProps {

@@ -1,7 +1,7 @@
+import { allPages } from '../../api/pagination'
 import { useState } from 'react'
-import { Download, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
-import { Button } from '../ui/Button'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import { getCustomers } from '../../api'
@@ -15,8 +15,7 @@ export function CustomersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const customers = useApi<PaginatedData<CustomerListItem>>(async () => {
-    const res = await getCustomers({ status: statusFilter || undefined, page: 0, size: 50 })
-    return res.data
+    return allPages(page => getCustomers({ status: statusFilter || undefined, page, size: 100 }))
   }, [statusFilter])
 
   if (selectedId) {
@@ -90,7 +89,7 @@ export function CustomersPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">{totalElements} users</span>
-          <Button variant="secondary" size="sm"><Download size={13} /> Export</Button>
+
         </div>
       </div>
 

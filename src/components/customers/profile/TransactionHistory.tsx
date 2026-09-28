@@ -1,3 +1,4 @@
+import { allPages } from '../../../api/pagination'
 import { Badge, statusBadge } from '../../ui/Badge'
 import { DataTable, type ColumnDef } from '../../ui/DataTable'
 import { useApi } from '../../../hooks/useApi'
@@ -11,7 +12,7 @@ function fmt(n?: number) { return `₦${(n ?? 0).toLocaleString()}` }
 
 export function TransactionHistory({ customerId }: Props) {
   const { data, loading, error, refetch } = useApi(
-    () => getTransactions({ customerId, size: 50 }).then(r => r.data),
+    () => allPages(page => getTransactions({ customerId, page, size: 100 })),
     [customerId],
   )
   const txs = data?.content ?? []

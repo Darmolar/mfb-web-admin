@@ -7,7 +7,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 py-3 border-b border-slate-50 last:border-0">
       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-      <span className="text-sm font-semibold text-slate-700">{value || '—'}</span>
+      <span className="text-sm font-semibold text-slate-700 break-words min-w-0">{value || '—'}</span>
     </div>
   )
 }
@@ -29,6 +29,12 @@ export function PersonalInfo({ customer }: Props) {
         <Row label="Phone Number" value={customer.phoneNumber} />
         <Row label="BVN" value={customer.bvn} />
         <Row label="Account Number" value={customer.accountNumber} />
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 lg:col-span-2">
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">System Information</h4>
+        <Row label="Customer ID" value={customer.id} />
+        <Row label="Status" value={customer.status} />
+        <Row label="Created At" value={customer.createdAt || '—'} />
       </div>
     </div>
   )

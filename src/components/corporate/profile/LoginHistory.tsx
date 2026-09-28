@@ -16,24 +16,6 @@ export function LoginHistory({ corporateId }: Props) {
   const entries = data?.content ?? []
   const suspicious = entries.filter(e => !e.success && e.failureReason?.toLowerCase().includes('password')).length
 
-  function getMockLocation(ip: string) {
-    if (ip.startsWith('197.')) return 'Lagos, Nigeria'
-    if (ip.startsWith('102.')) return 'Abuja, Nigeria'
-    return 'Unknown Location'
-  }
-
-  function getMockAgent(id: string) {
-    const agents = ['Chrome / macOS', 'Safari / iOS', 'Chrome / Windows', 'Edge / Windows']
-    const index = id.charCodeAt(0) % agents.length
-    return agents[index]
-  }
-
-  function getMockMfa(id: string) {
-    const mfas = ['SMS OTP', 'Email OTP', 'Authenticator', 'None']
-    const index = id.charCodeAt(id.length - 1) % mfas.length
-    return mfas[index]
-  }
-
   const columns: ColumnDef<LoginHistoryEntry>[] = [
     {
       header: 'Timestamp',
@@ -50,17 +32,17 @@ export function LoginHistory({ corporateId }: Props) {
     {
       header: 'Geolocation',
       sortable: false,
-      cell: (entry) => <span className="text-xs text-slate-600">{getMockLocation(entry.ipAddress)}</span>,
+      cell: (entry) => <span className="text-xs text-slate-600">{entry.location || 'Unavailable'}</span>,
     },
     {
       header: 'User Agent',
       sortable: false,
-      cell: (entry) => <span className="text-xs text-slate-400">{getMockAgent(entry.id)}</span>,
+      cell: (entry) => <span className="text-xs text-slate-400">{entry.userAgent || 'Unavailable'}</span>,
     },
     {
       header: 'MFA Method',
       sortable: false,
-      cell: (entry) => <span className="text-xs text-slate-500">{getMockMfa(entry.id)}</span>,
+      cell: (entry) => <span className="text-xs text-slate-500">{entry.mfaMethod || 'Unavailable'}</span>,
     },
     {
       header: 'Status',

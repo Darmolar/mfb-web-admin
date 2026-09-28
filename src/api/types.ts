@@ -17,6 +17,67 @@ export type PaginatedData<T> = {
   size?: number
 }
 
+export type FeeStatus = 'PENDING' | 'BATCHED' | 'DEBITED' | 'SKIPPED'
+export type FeeBatchStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
+export type FeeType = 'SMS' | 'BVN_VERIFICATION' | 'NIN_VERIFICATION' | 'FACE_VERIFICATION'
+
+export type FeeSummary = {
+  pendingTotal: number
+  breakdown: Partial<Record<FeeType, { count: number; total: number }>>
+  autoDebitEnabled: boolean
+  debitAccount: string
+  creditAccount: string
+}
+
+export type FeeCharge = {
+  id: string
+  feeType: FeeType
+  provider: string | null
+  amount: number
+  currency: string
+  customerId: string | null
+  reference: string | null
+  status: FeeStatus
+  batchId: string | null
+  createdAt: string
+}
+
+export type FeeBatch = {
+  id?: string
+  totalAmount?: number
+  chargeCount?: number
+  debitAccount?: string
+  creditAccount?: string
+  cbaReference?: string | null
+  status: FeeBatchStatus
+  triggeredBy?: string | null
+  failureReason?: string | null
+  createdAt?: string
+  processedAt?: string | null
+}
+
+export type FeeSettings = {
+  'fee.sms'?: string
+  'fee.bvn_verification'?: string
+  'fee.nin_verification'?: string
+  'fee.face_verification'?: string
+  'fee.debit.account'?: string
+  'fee.credit.account'?: string
+  'fee.auto_debit.enabled'?: string
+  'fee.debit.cron'?: string
+}
+
+export type FeeSettingsUpdate = {
+  smsFee?: string
+  bvnFee?: string
+  ninFee?: string
+  faceFee?: string
+  debitAccount?: string
+  creditAccount?: string
+  autoDebitEnabled?: boolean
+  debitCron?: string
+}
+
 export class ApiError extends Error {
   status: number
   errorCode?: string
@@ -161,7 +222,28 @@ export type CustomerListItem = {
   createdAt: string
 }
 
-export type CustomerDetail = CustomerListItem
+export type CustomerAccount = {
+  id?: string
+  accountNumber: string
+  accountType?: string
+  accountName?: string
+  currency?: string
+  currentBalance?: number
+  availableBalance?: number
+  active?: boolean
+  primary?: boolean
+  createdAt?: string
+}
+
+export type CustomerDetail = CustomerListItem & {
+  accounts?: CustomerAccount[]
+}
+
+export type AddCustomerAccountRequest = {
+  adminId: string
+  productCode?: string
+  accountDescription?: string
+}
 
 export type CustomerStatusUpdate = {
   status: string
@@ -520,6 +602,9 @@ export type CustomerDevice = {
 }
 
 export type LoginHistoryEntry = {
+  location?: string
+  userAgent?: string
+  mfaMethod?: string
   id: string
   username: string
   ipAddress: string
@@ -1013,3 +1098,67 @@ export type PushBroadcastRequest = {
   platform?: 'ANDROID' | 'IOS' | 'WEB'
   saveInApp?: boolean
 }
+
+// ──────────────────────────────────────────────
+// VAS settings
+// ──────────────────────────────────────────────
+
+/**
+ * GET /v1/bank-admin/settings/vas returns every vas.* key with its current value.
+ * Accept either a key/value map or a list of entries.
+ */
+export type VasSettingsMap = Record<string, string | number | null>
+export type VasSettingsResponse = VasSettingsMap | { key: string; value: string | number | null }[]
+
+export type VasAccountsUpdate = {
+  suspenseAccount?: string
+  prepaymentAccount?: string
+  incomeAccount?: string
+  bvnExpensesAccount?: string
+  cashbackAccount?: string
+}
+
+/** Flat fees in NGN, sent as numbers */
+export type VasChargesUpdate = {
+  bvnCharge?: number
+  ninCharge?: number
+  billCharge?: number
+  airtimeCharge?: number
+  dataCharge?: number
+  electricityCharge?: number
+  cableTvCharge?: number
+}
+
+/** Decimal fractions, e.g. 0.02 = 2% */
+export type VasCashbackUpdate = {
+  airtime?: number
+  data?: number
+  electricity?: number
+  cableTv?: number
+}
+
+// ──────────────────────────────────────────────
+// GL accounts
+// ──────────────────────────────────────────────
+
+export type GlAccounts = {
+  loanGlAccount?: string
+  cardFeeAccount?: string
+  nipFeeAccount?: string
+}
+
+export type ComplaintStatus = 'OPEN' | 'IN_REVIEW' | 'RESOLVED' | 'CLOSED'
+export type Complaint = {
+  id: string
+  submitterName?: string
+  submitterEmail?: string
+  subject: string
+  message?: string
+  status: ComplaintStatus
+  adminResponse?: string | null
+  createdAt: string
+  respondedAt?: string | null
+  respondedBy?: string | null
+}
+export type ComplaintPage = { content: Complaint[]; totalElements: number; totalPages: number }
+export type ComplaintResponseResult = Pick<Complaint, 'id' | 'status' | 'adminResponse' | 'respondedAt' | 'respondedBy'>

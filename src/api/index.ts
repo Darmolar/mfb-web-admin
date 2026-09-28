@@ -1,6 +1,8 @@
-import { ADMIN_API_KEY, API_BASE_URL } from './config'
+import { validateProductCodes, type CbaProductCodes } from './productCodes'
+import { ADMIN_API_KEY, API_BASE_URL, PUBLIC_API_KEY } from './config'
 import type {
   IdentityProvider, IdentityProviderSettings,
+  VasSettingsResponse, VasAccountsUpdate, VasChargesUpdate, VasCashbackUpdate, GlAccounts,
   CustomerPushRequest, CustomerPushResponse, PushBroadcastRequest,
   Role,
   Permission,
@@ -44,6 +46,8 @@ import {
   type CreateCorporateRequest,
   type CreateCorporateResponse,
   type CustomerDetail,
+  type CustomerAccount,
+  type AddCustomerAccountRequest,
   type CustomerListItem,
   type CustomerListParams,
   type CustomerStatusUpdate,
@@ -100,6 +104,12 @@ import {
   type ReviewIdentityDocumentRequest,
   type LinkSignatoryRequest,
   type CardDispatchRequest,
+  type FeeSummary,
+  type FeeCharge,
+  type FeeBatch,
+  type FeeSettings,
+  type FeeSettingsUpdate,
+  type FeeStatus,
 } from './types'
 
 export * from './config'
@@ -138,13 +148,14 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
   return '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&')
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResponse<T>> {
+async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess = false): Promise<ApiResponse<T>> {
   const token = getStoredToken()
 
   const res = await fetch(buildApiUrl(path), {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(['POST', 'PUT', 'PATCH'].includes(init.method ?? '') ? { 'Content-Type': 'application/json' } : {}),
+      'X-API-Key': PUBLIC_API_KEY,
       ...(ADMIN_API_KEY ? { 'X-Admin-Key': ADMIN_API_KEY } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
@@ -160,11 +171,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResp
   }
 
   const body = await res.json().catch(() => null)
-  if (!res.ok || !body?.success) {
+  if (!res.ok || body?.success === false || (!allowHttpSuccess && !body?.success) || (allowHttpSuccess && body == null && res.status !== 204)) {
     throw new ApiError(body?.message ?? 'Request failed', res.status, body?.errorCode)
   }
 
-  return body as ApiResponse<T>
+  return (allowHttpSuccess ? { success: true, data: body, message: body?.message } : body) as ApiResponse<T>
 }
 
 // ──────────────────────────────────────────────
@@ -257,6 +268,13 @@ export function getCustomers(params: CustomerListParams = {}) {
 
 export function getCustomerDetail(customerId: string) {
   return request<CustomerDetail>(`/v1/bank-admin/customers/${customerId}`)
+}
+
+export function addCustomerAccount(customerId: string, payload: AddCustomerAccountRequest) {
+  return request<CustomerAccount>(`/v1/bank-admin/customers/${customerId}/accounts`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function updateCustomerStatus(customerId: string, payload: CustomerStatusUpdate) {
@@ -611,17 +629,17 @@ export function disburseLoan(applicationId: string, adminId: string) {
 // ──────────────────────────────────────────────
 // Reference Data
 // ──────────────────────────────────────────────
-export function getCountries() {
-  return request<PaginatedData<ReferenceCountry>>('/v1/bank-admin/reference/countries')
+export function getCountries(page = 0) {
+  return request<PaginatedData<ReferenceCountry>>(`/v1/bank-admin/reference/countries?page=${page}&size=100`)
 }
-export function getStates() {
-  return request<PaginatedData<ReferenceState>>('/v1/bank-admin/reference/states')
+export function getStates(page = 0) {
+  return request<PaginatedData<ReferenceState>>(`/v1/bank-admin/reference/states?page=${page}&size=100`)
 }
-export function getTowns() {
-  return request<PaginatedData<ReferenceTown>>('/v1/bank-admin/reference/towns')
+export function getTowns(page = 0) {
+  return request<PaginatedData<ReferenceTown>>(`/v1/bank-admin/reference/towns?page=${page}&size=100`)
 }
-export function getSectors() {
-  return request<PaginatedData<ReferenceSector>>('/v1/bank-admin/reference/sectors')
+export function getSectors(page = 0) {
+  return request<PaginatedData<ReferenceSector>>(`/v1/bank-admin/reference/sectors?page=${page}&size=100`)
 }
 
 // ──────────────────────────────────────────────
@@ -974,5 +992,105 @@ export function sendPushBroadcast(payload: PushBroadcastRequest) {
   return request<unknown>('/v1/bank-admin/push/broadcast', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+// --- VAS settings (accounts, charges, cashback) ---
+export function getVasSettings() {
+  return request<VasSettingsResponse>('/v1/bank-admin/settings/vas')
+}
+
+export function updateVasAccounts(payload: VasAccountsUpdate) {
+  return request<unknown>('/v1/bank-admin/settings/vas/accounts', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Flat fees in NGN. billCharge is the fallback for any category not set individually. */
+export function updateVasCharges(payload: VasChargesUpdate) {
+  return request<unknown>('/v1/bank-admin/settings/vas/charges', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Rates are decimal fractions: 0.055 = 5.5% of the transaction amount. */
+export function updateVasCashback(payload: VasCashbackUpdate) {
+  return request<unknown>('/v1/bank-admin/settings/vas/cashback', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Set any single vas.* key directly, e.g. vas.charge.cable_tv. */
+export function setVasEntry(key: string, value: string) {
+  if (!key.startsWith('vas.')) throw new Error('VAS config keys must start with vas.')
+  return request<unknown>(`/v1/bank-admin/settings/vas/entry/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ value }),
+  })
+}
+
+// --- GL accounts ---
+export function getGlAccounts() {
+  return request<GlAccounts>('/v1/bank-admin/settings/gl')
+}
+
+/** All fields optional — only what is sent gets updated. */
+export function updateGlAccounts(payload: GlAccounts) {
+  return request<GlAccounts>('/v1/bank-admin/settings/gl', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Credentials and X-Admin-Username are supplied by the trusted API proxy. */
+export function updateCbaProductCodes(payload: CbaProductCodes) {
+  return request<unknown>('/v1/bank-admin/settings/cba/product-codes', {
+    method: 'PUT',
+    body: JSON.stringify(validateProductCodes(payload)),
+  }, true)
+}
+
+type FeeEnvelope<T> = { status: 'success' | 'error'; data?: T; message?: string; code?: string }
+
+async function feeRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await request<FeeEnvelope<T>>(path, init, true)
+  const body = response.data
+  if (!body || body.status !== 'success' || body.data === undefined) {
+    throw new ApiError(body?.message ?? 'Fee request failed', 200, body?.code)
+  }
+  return body.data
+}
+
+export function getFeeSummary() { return feeRequest<FeeSummary>('/v1/bank-admin/fees/summary') }
+export function getFeeCharges(params: { status?: FeeStatus; page?: number; size?: number } = {}) {
+  return feeRequest<PaginatedData<FeeCharge>>(`/v1/bank-admin/fees/charges${buildQueryString(params)}`)
+}
+export function getFeeBatches(params: { page?: number; size?: number } = {}) {
+  return feeRequest<PaginatedData<FeeBatch>>(`/v1/bank-admin/fees/batches${buildQueryString(params)}`)
+}
+export function getFeeSettings() { return feeRequest<FeeSettings>('/v1/bank-admin/settings/fees') }
+export async function updateFeeSettings(payload: FeeSettingsUpdate) {
+  const response = await request<FeeEnvelope<unknown>>('/v1/bank-admin/settings/fees', { method: 'PUT', body: JSON.stringify(payload) }, true)
+  if (!response.data || response.data.status !== 'success') throw new ApiError(response.data?.message ?? 'Unable to update fee settings', 200, response.data?.code)
+}
+export function debitPendingFees() { return feeRequest<FeeBatch>('/v1/bank-admin/fees/debit', { method: 'POST' }) }
+
+export function getComplaints(params: { status?: import('./types').ComplaintStatus; page?: number; size?: number } = {}) {
+  const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 20 })
+  return request<import('./types').ComplaintPage>(`/v1/bank-admin/complaints${qs}`)
+}
+
+export function getComplaint(id: string) {
+  return request<import('./types').Complaint>(`/v1/bank-admin/complaints/${encodeURIComponent(id)}`)
+}
+
+export function respondToComplaint(id: string, payload: {
+  adminId: string; response: string; status?: Exclude<import('./types').ComplaintStatus, 'OPEN'>
+}) {
+  return request<import('./types').ComplaintResponseResult>(`/v1/bank-admin/complaints/${encodeURIComponent(id)}/respond`, {
+    method: 'POST', body: JSON.stringify(payload),
   })
 }

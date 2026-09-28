@@ -15,6 +15,7 @@ import { CardsPage } from '../cards/CardsPage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
 import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
+import { ComplaintsPage } from '../complaints/ComplaintsPage';
 import { SettingsPage } from '../settings/SettingsPage'
 
 import { Routes, Route } from 'react-router-dom'
@@ -41,6 +42,7 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   governance: <GovernancePage />,
   admins: <AdminsPage />,
   settings: <SettingsPage />,
+  complaints: <ComplaintsPage />,
 }
 
 export function AppShell() {

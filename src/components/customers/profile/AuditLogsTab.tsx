@@ -1,3 +1,4 @@
+import { allPages } from '../../../api/pagination'
 import { FileText } from 'lucide-react'
 import { useApi } from '../../../hooks/useApi'
 import { getAuditLogs } from '../../../api'
@@ -10,18 +11,13 @@ interface Props {
 }
 
 export function AuditLogsTab({ customerId }: Props) {
-  // Use the API with a custom parameter for the customer, if supported.
-  // Assuming getAuditLogs might be able to filter by customer later, but currently it just gets all logs.
-  // Wait, does getAuditLogs take customerId? 
-  // Let's just fetch all and filter by customerId for now, or just fetch all if it's mock.
   const logs = useApi<PaginatedData<AuditLogEntry>>(
-    () => getAuditLogs({ size: 50 }).then(res => {
-      // In a real app we'd pass customerId as a param: getAuditLogs({ customerId })
-      // For the mock, we'll just filter if possible, or assume the mock returns relevant logs.
-      const filtered = res.data.content.filter(log => log.customerId === customerId || !log.customerId)
-      return { ...res.data, content: filtered }
-    }),
-    [customerId]
+    async () => {
+      // The documented API has no customer filter. Filter all pages strictly.
+      const data = await allPages(page => getAuditLogs({ page, size: 100 }))
+      const content = data.content.filter(log => log.customerId === customerId)
+      return { ...data, content, totalElements: content.length }
+    }, [customerId],
   )
 
   const columns: ColumnDef<AuditLogEntry>[] = [

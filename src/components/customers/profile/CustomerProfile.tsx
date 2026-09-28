@@ -103,21 +103,21 @@ export function CustomerProfile({ customerId, onBack }: Props) {
       </button>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap gap-4 items-start justify-between">
+          <div className="flex items-center gap-4 min-w-0">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
               <span className="text-xl font-black text-slate-600">{displayName.charAt(0)}</span>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-lg font-black text-slate-800">{displayName}</h2>
+                <h2 className="text-lg font-black text-slate-800 break-words">{displayName}</h2>
                 <Badge label={c.status} variant={statusBadge(c.status)} size="md" />
               </div>
-              <p className="text-xs text-slate-400">{c.email} · {c.phoneNumber}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Account: {c.accountNumber} · BVN: {c.bvn} · Since {c.createdAt ? moment(c.createdAt).fromNow() : ''}</p>
+              <p className="text-xs text-slate-400 break-all">{c.email} · {c.phoneNumber}</p>
+              <p className="text-xs text-slate-400 break-all mt-0.5">Account: {c.accountNumber} · BVN: {c.bvn} · Since {c.createdAt ? moment(c.createdAt).fromNow() : ''}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={c.status === 'ACTIVE' ? 'danger' : 'success'}
               size="sm"
