@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { login as adminLogin, verifyAdminMfa, type AdminLoginData, type AdminSession } from '../api'
 
 interface AuthUser {
@@ -41,7 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
       const stored = localStorage.getItem(AUTH_KEY)
-      return stored ? JSON.parse(stored) : null
+      const session = stored ? JSON.parse(stored) : null
+      return session?.accessToken && session?.adminId ? session : null
     } catch {
       return null
     }
@@ -55,8 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
+  useEffect(() => {
+    const expire = () => { setUser(null); setPendingLogin(null) }
+    window.addEventListener('mfb-admin-session-expired', expire)
+    return () => window.removeEventListener('mfb-admin-session-expired', expire)
+  }, [])
+
   const login = async (email: string, password: string) => {
     const { data } = await adminLogin({ email, password })
+    if (!data?.preAuthToken) throw new Error('The server did not return a login verification token.')
     setPendingLogin(data)
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(data))
   }
@@ -64,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyTwoFactor = async (code: string) => {
     if (!pendingLogin?.preAuthToken) throw new Error('Please sign in again to continue.')
     const { data } = await verifyAdminMfa({ preAuthToken: pendingLogin.preAuthToken, otp: code })
+    if (!data?.accessToken || !data.adminId) throw new Error('The server did not return a valid admin session.')
     const authUser = mapSession(data)
     setUser(authUser)
     setPendingLogin(null)
@@ -72,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    void fetch('/api/v1/bank-admin/auth/logout', { method: 'POST' }).catch(() => {})
     setUser(null)
     setPendingLogin(null)
     sessionStorage.removeItem(PENDING_KEY)

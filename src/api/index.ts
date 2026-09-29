@@ -149,7 +149,8 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
 }
 
 async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess = false): Promise<ApiResponse<T>> {
-  const token = getStoredToken()
+  const isAuthRequest = path.startsWith('/v1/bank-admin/auth/')
+  const token = isAuthRequest ? null : getStoredToken()
 
   const res = await fetch(buildApiUrl(path), {
     ...init,
@@ -162,15 +163,17 @@ async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess
     },
   })
 
-  // Auto-logout on 401
-  if (res.status === 401) {
+  const body = await res.json().catch(() => null)
+  // A failed sign-in or server key is not evidence that the current session expired.
+  // Ignore late failures belonging to a previous login.
+  if (res.status === 401 && !isAuthRequest && token && token === getStoredToken()
+      && !/admin key/i.test(body?.message || '')) {
     localStorage.removeItem(AUTH_KEY)
     sessionStorage.removeItem('mfb_admin_pre_auth')
-    window.location.reload()
-    throw new ApiError('Session expired. Please sign in again.', 401)
+    window.dispatchEvent(new Event('mfb-admin-session-expired'))
+    throw new ApiError(body?.message || 'Session expired. Please sign in again.', 401, body?.errorCode)
   }
 
-  const body = await res.json().catch(() => null)
   if (!res.ok || body?.success === false || (!allowHttpSuccess && !body?.success) || (allowHttpSuccess && body == null && res.status !== 204)) {
     throw new ApiError(body?.message ?? 'Request failed', res.status, body?.errorCode)
   }
