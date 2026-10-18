@@ -1,3 +1,4 @@
+import { parseKycProcesses, parseKycRequirements } from './kycConfiguration'
 import { validateProductCodes, type CbaProductCodes } from './productCodes'
 import { ADMIN_API_KEY, API_BASE_URL, PUBLIC_API_KEY } from './config'
 import type {
@@ -155,7 +156,7 @@ async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess
   const res = await fetch(buildApiUrl(path), {
     ...init,
     headers: {
-      ...(['POST', 'PUT', 'PATCH'].includes(init.method ?? '') ? { 'Content-Type': 'application/json' } : {}),
+      ...(['POST', 'PUT', 'PATCH'].includes(init.method ?? '') && !(typeof FormData !== 'undefined' && init.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
       'X-API-Key': PUBLIC_API_KEY,
       ...(ADMIN_API_KEY ? { 'X-Admin-Key': ADMIN_API_KEY } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1096,4 +1097,143 @@ export function respondToComplaint(id: string, payload: {
   return request<import('./types').ComplaintResponseResult>(`/v1/bank-admin/complaints/${encodeURIComponent(id)}/respond`, {
     method: 'POST', body: JSON.stringify(payload),
   })
+}
+
+export interface SmsSetting { enabled: boolean; template: string; placeholders: string }
+export interface SmsTypeMetadata { defaultTemplate: string; placeholders: string }
+export interface SmsUpdate { type: string; enabled?: boolean; template?: string }
+
+function smsBody<T>(body: unknown): T {
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    return body.data as T
+  }
+  return body as T
+}
+
+export async function getSmsSettings() {
+  const res = await request<unknown>('/v1/bank-admin/settings/notifications/sms', {}, true)
+  const settings = smsBody<Record<string, SmsSetting>>(res.data)
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings) ||
+      Object.values(settings).some(v => !v || typeof v.enabled !== 'boolean' || typeof v.template !== 'string' || typeof v.placeholders !== 'string')) {
+    throw new Error('SMS settings response is invalid.')
+  }
+  return settings
+}
+
+export async function getSmsTypes() {
+  const res = await request<unknown>('/v1/bank-admin/settings/notifications/sms/types', {}, true)
+  const types = smsBody<Record<string, SmsTypeMetadata>>(res.data)
+  if (!types || typeof types !== 'object' || Array.isArray(types) ||
+      Object.values(types).some(v => !v || typeof v.defaultTemplate !== 'string' || typeof v.placeholders !== 'string')) {
+    throw new Error('SMS type metadata response is invalid.')
+  }
+  return types
+}
+
+export function updateSmsType(type: string, update: Omit<SmsUpdate, 'type'>) {
+  return request<unknown>(`/v1/bank-admin/settings/notifications/sms/${encodeURIComponent(type)}`, {
+    method: 'PUT', body: JSON.stringify(update),
+  }, true)
+}
+
+export function updateSmsSettings(updates: SmsUpdate[]) {
+  return request<unknown>('/v1/bank-admin/settings/notifications/sms', {
+    method: 'PUT', body: JSON.stringify({ updates }),
+  }, true)
+}
+
+// Dynamic KYC configuration verified against the deployed API.
+export function createKycProcess(payload: import('./dynamicKycTypes').CreateKycProcess) {
+  return request<unknown>('/v1/bank-admin/kyc/processes', { method: 'POST', body: JSON.stringify(payload) })
+}
+export function updateKycProcess(code: string, payload: import('./dynamicKycTypes').UpdateKycProcess) {
+  return request<unknown>(`/v1/bank-admin/kyc/processes/${encodeURIComponent(code)}`, { method: 'PUT', body: JSON.stringify(payload) })
+}
+export function createKycRequirement(code: string, payload: import('./dynamicKycTypes').CreateKycRequirement) {
+  return request<unknown>(`/v1/bank-admin/kyc/processes/${encodeURIComponent(code)}/requirements`, { method: 'POST', body: JSON.stringify(payload) })
+}
+export function updateKycRequirement(id: string, payload: import('./dynamicKycTypes').UpdateKycRequirement) {
+  return request<unknown>(`/v1/bank-admin/kyc/requirements/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) })
+}
+export function reviewKycSubmission(id: string, payload: import('./dynamicKycTypes').ReviewKycSubmission) {
+  return request<unknown>(`/v1/bank-admin/kyc/submissions/${encodeURIComponent(id)}/review`, { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export async function getKycProcesses() {
+  const response = await request<unknown>('/v1/bank-admin/kyc/processes')
+  return parseKycProcesses(response.data)
+}
+export async function getKycRequirements(code: string) {
+  const response = await request<unknown>(`/v1/bank-admin/kyc/processes/${encodeURIComponent(code)}/requirements`)
+  return parseKycRequirements(response.data, code)
+}
+/** DELETE /bank-admin/kyc/processes/{code}. Past submissions stay with the bank; customers stop seeing the process. */
+export function deleteKycProcess(code: string) {
+  return request<unknown>(`/v1/bank-admin/kyc/processes/${encodeURIComponent(code)}`, { method: 'DELETE' }, true)
+}
+export function deleteKycRequirement(id: string) {
+  return request<unknown>(`/v1/bank-admin/kyc/requirements/${encodeURIComponent(id)}`, { method: 'DELETE' }, true)
+}
+export type KycSubmissionRecord = Record<string, unknown> & { id: string }
+export interface KycSubmissionPage { content: KycSubmissionRecord[]; totalPages: number; totalElements: number }
+export async function getKycSubmissions(status: string, page: number) {
+  const response = await request<KycSubmissionPage>('/v1/bank-admin/kyc/submissions' + buildQueryString({ status, page, size: 20 }))
+  const data = response.data
+  if (!data || !Array.isArray(data.content) || !Number.isInteger(data.totalPages) || !Number.isInteger(data.totalElements) ||
+      data.content.some(row => !row || typeof row.id !== 'string' || !row.id)) throw new Error('Unable to read KYC submissions. Please retry.')
+  return data
+}
+export async function getKycSubmission(id: string): Promise<Record<string, unknown>> {
+  const response = await request<unknown>(`/v1/bank-admin/kyc/submissions/${encodeURIComponent(id)}`)
+  if (!response.data || typeof response.data !== 'object' || Array.isArray(response.data)) throw new Error('Unable to read this submission. Please retry.')
+  return response.data as Record<string, unknown>
+}
+export async function getKycSubmissionFiles(id: string): Promise<unknown> {
+  const data = (await request<unknown>(`/v1/bank-admin/kyc/submissions/${encodeURIComponent(id)}/files`)).data
+  if (!data || typeof data !== 'object') throw new Error('Unable to read this submission’s documents. Please retry.')
+  return data
+}
+
+// Stamp responses are intentionally unknown until the backend publishes a schema.
+export function getBankStamp() {
+  return request<unknown>('/v1/bank-admin/settings/bank-stamp', {}, true)
+}
+export function uploadBankStamp(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<unknown>('/v1/bank-admin/settings/bank-stamp', { method: 'PUT', body }, true)
+}
+// Only the enabled flag is configurable; the exact PATCH field name is awaiting backend confirmation,
+// so the page re-reads the stamp after saving to confirm the change took effect.
+export function updateBankStamp(payload: { enabled: boolean }) {
+  return request<unknown>('/v1/bank-admin/settings/bank-stamp', { method: 'PATCH', body: JSON.stringify(payload) }, true)
+}
+export function deleteBankStamp() {
+  return request<unknown>('/v1/bank-admin/settings/bank-stamp', { method: 'DELETE' }, true)
+}
+
+// CardFusion responses are undocumented; parse them with the readers in ./cardfusion.
+const CARDFUSION = '/v1/bank-admin/cardfusion'
+const CARDFUSION_PAGE = buildQueryString({ page: 0, size: 100 })
+
+export function getCardFusionStaff() {
+  return request<unknown>(`${CARDFUSION}/users${CARDFUSION_PAGE}`, {}, true)
+}
+export function createCardFusionStaff(payload: { name: string; email: string; staffCode: string; adminId: string }) {
+  return request<unknown>(`${CARDFUSION}/users`, { method: 'POST', body: JSON.stringify(payload) }, true)
+}
+export function getCardFusionDevices() {
+  return request<unknown>(`${CARDFUSION}/devices${CARDFUSION_PAGE}`, {}, true)
+}
+export function setCardFusionDeviceRevoked(hardwareId: string, revoked: boolean, adminId: string) {
+  return request<unknown>(`${CARDFUSION}/devices/${encodeURIComponent(hardwareId)}/${revoked ? 'revoke' : 'unrevoke'}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ adminId }),
+  }, true)
+}
+export function createCardFusionOfficeToken(payload: { description: string; adminId: string }) {
+  return request<unknown>(`${CARDFUSION}/office-tokens`, { method: 'POST', body: JSON.stringify(payload) }, true)
+}
+export function getCardFusionActivities() {
+  return request<unknown>(`${CARDFUSION}/activities${CARDFUSION_PAGE}`, {}, true)
 }

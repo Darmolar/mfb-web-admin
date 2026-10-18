@@ -28,7 +28,7 @@ export function TabBar({ tabs, active, onChange, variant = 'pills' }: TabBarProp
   }
 
   return (
-    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+    <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl w-fit">
       {tabs.map(tab => (
         <button
           key={tab.id}

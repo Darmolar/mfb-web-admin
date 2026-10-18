@@ -74,7 +74,7 @@ const fractionToPercent = (v: string) => (v === '' || isNaN(Number(v)) ? v : Str
 const inputClass =
   'w-full px-2.5 py-1.5 text-sm font-semibold text-slate-800 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white'
 
-export function VasSettings() {
+export function VasSettings({ section = 'services' }: { section?: 'accounts' | 'services' }) {
   const { data, loading, error, refetch } = useApi(() => getVasSettings().then(r => r.data), [])
   const map = useMemo(() => toMap(data), [data])
 
@@ -167,14 +167,14 @@ export function VasSettings() {
     )
   }
 
-  const entries = Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
+  const entries = Object.entries(map).filter(([key]) => section === 'accounts' ? key.startsWith('vas.account.') : !key.startsWith('vas.account.')).sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-bold text-slate-800">VAS Configuration</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Accounts, fees and cashback for value-added services. Changes take effect immediately.</p>
+          <h3 className="text-sm font-bold text-slate-800">{section === 'accounts' ? 'VAS Settlement Accounts' : 'VAS Configuration'}</h3>
+          <p className="text-xs text-slate-500 mt-0.5">{section === 'accounts' ? 'Settlement accounts for value-added services.' : 'Fees and cashback for value-added services.'} Changes take effect immediately.</p>
         </div>
         <Button variant="secondary" size="sm" onClick={refetch} disabled={!!saving || loading}>
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
@@ -187,7 +187,7 @@ export function VasSettings() {
         </div>
       )}
 
-      {SECTIONS.map(section => {
+      {SECTIONS.filter(item => section === 'accounts' ? item.id === 'accounts' : item.id !== 'accounts').map(section => {
         const draft = drafts[section.id]
         const dirty = Object.keys(draft).length > 0
         return (
@@ -243,12 +243,12 @@ export function VasSettings() {
             <ListTree size={16} className="text-slate-500" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-700">All VAS keys</p>
-            <p className="text-xs text-slate-400 mt-0.5">Raw vas.* values stored on the server. Edit any single key directly. Cashback keys are fractions here (0.055 = 5.5%).</p>
+            <p className="text-sm font-semibold text-slate-700">{section === 'accounts' ? 'VAS settlement account keys' : 'VAS service keys'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{section === 'accounts' ? 'Settlement account values stored on the server. Edit any single key directly.' : 'Service values stored on the server. Edit any single key directly. Cashback keys are fractions here (0.055 = 5.5%).'}</p>
           </div>
         </div>
         {entries.length === 0 ? (
-          <p className="px-5 py-6 text-xs text-slate-400">No vas.* keys returned by the server.</p>
+          <p className="px-5 py-6 text-xs text-slate-400">No keys returned for this section.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

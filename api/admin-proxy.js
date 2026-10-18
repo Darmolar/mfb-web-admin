@@ -1,5 +1,8 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
+// Preserve multipart bytes and their boundary; JSON is forwarded as raw text.
+export const config = { api: { bodyParser: false } }
+
 const COOKIE = '__Host-mfb_admin_session'
 const digest = value => createHash('sha256').update(value).digest('hex')
 function sign(value, key) {
@@ -62,10 +65,34 @@ export default async function handler(req, res) {
     headers.Authorization = `Bearer ${token}`
     if (session.username) headers['X-Admin-Username'] = session.username
   }
-  if (req.body !== undefined) headers['Content-Type'] = 'application/json'
+  let requestBody = req.body
+  const contentType = req.headers['content-type'] || ''
+  const multipart = /^multipart\/form-data(?:;|$)/i.test(contentType)
+  if (multipart && (path !== 'settings/bank-stamp' || req.method !== 'PUT' || !/boundary=/i.test(contentType))) {
+    return fail(415, 'Unsupported upload request.', 'INVALID_UPLOAD')
+  }
+  const bodyLimit = multipart ? 2 * 1024 * 1024 + 64 * 1024 : 1024 * 1024
+  if (Number(req.headers['content-length']) > bodyLimit) return fail(413, 'Request is too large.', 'PAYLOAD_TOO_LARGE')
   try {
+    if (!['GET', 'HEAD'].includes(req.method) && requestBody === undefined && req[Symbol.asyncIterator]) {
+      const chunks = []
+      let length = 0
+      for await (const chunk of req) {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+        length += bytes.length
+        if (length > bodyLimit) return fail(413, 'Request is too large.', 'PAYLOAD_TOO_LARGE')
+        chunks.push(bytes)
+      }
+      if (chunks.length) requestBody = Buffer.concat(chunks)
+    }
+    if (requestBody !== undefined) {
+      if (multipart && !Buffer.isBuffer(requestBody)) return fail(415, 'Upload bytes are unavailable.', 'INVALID_UPLOAD')
+      if (!Buffer.isBuffer(requestBody) && typeof requestBody !== 'string') requestBody = JSON.stringify(requestBody)
+      if (Buffer.byteLength(requestBody) > bodyLimit) return fail(413, 'Request is too large.', 'PAYLOAD_TOO_LARGE')
+      headers['Content-Type'] = multipart ? contentType : 'application/json'
+    }
     const response = await fetch(upstream, { method: req.method, headers, redirect: 'error',
-      body: ['GET', 'HEAD'].includes(req.method) || req.body === undefined ? undefined : typeof req.body === 'string' ? req.body : JSON.stringify(req.body),
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : requestBody,
       signal: AbortSignal.timeout(25000),
     })
     if (response.status === 204) return res.status(204).end()

@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const compile=file=>ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
 function loadApi(response){const modules={};let request;
  function load(file){if(modules[file])return modules[file];const exports={};modules[file]=exports;vm.runInNewContext(compile(file),{exports,
-  require:name=>name==='./config'?{API_BASE_URL:'https://backend.test/api/v1',ADMIN_API_KEY:''}:name==='./productCodes'?load('src/api/productCodes.ts'):name==='./types'?load('src/api/types.ts'):(()=>{throw Error(name)})(),
+  require:name=>name==='./config'?{API_BASE_URL:'https://backend.test/api/v1',ADMIN_API_KEY:''}:name==='./kycConfiguration'?load('src/api/kycConfiguration.ts'):name==='./productCodes'?load('src/api/productCodes.ts'):name==='./types'?load('src/api/types.ts'):(()=>{throw Error(name)})(),
   localStorage:{getItem:()=>null},fetch:async(url,init)=>{request={url,init};return {ok:response.ok,status:response.status,json:async()=>response.body}},
  });return exports;}
  return {api:load('src/api/index.ts'),get request(){return request}};
@@ -15,5 +15,5 @@ test('development proxy injects server credentials only on the local authenticat
  const exports={};vm.runInNewContext(compile('vite.config.ts'),{exports,process:{cwd:()=>'.'},require:name=>name==='vite'?{defineConfig:v=>v,loadEnv:()=>({VITE_API_PROXY_TARGET:'https://backend.test',BANK_ADMIN_API_KEY:'test-only-key',BANK_ADMIN_USERNAME:'test-admin'})}:()=>null});
  const proxy=exports.default({mode:'development'}).server.proxy['/api'];let handler;proxy.configure({on:(_event,callback)=>{handler=callback}});
  function run(address,authorization,path='/api/v1/bank-admin/settings/cba/product-codes'){const headers={};handler({removeHeader:key=>{delete headers[key]},setHeader:(key,value)=>{headers[key]=value}},{method:'PUT',url:path,socket:{remoteAddress:address},headers:{authorization}});return headers;}
- assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Username'],'test-admin');assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Key'],'test-only-key');assert.deepEqual(run('192.168.1.10','Bearer test'),{});assert.deepEqual(run('127.0.0.1',undefined),{});assert.deepEqual(run('127.0.0.1','Bearer test','/api/v1/unrelated'),{});
+ assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Username'],'test-admin');assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Key'],'test-only-key');assert.deepEqual(run('192.168.1.10','Bearer test'),{});assert.deepEqual(run('127.0.0.1',undefined),{});assert.deepEqual(run('127.0.0.1','Bearer test','/api/v1/unrelated'),{});assert.equal(run('127.0.0.1','Bearer test','/api/v1/bank-admin/complaints')['X-Admin-Key'],'test-only-key');
 });

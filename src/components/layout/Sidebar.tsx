@@ -1,20 +1,20 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
   ScrollText, Scale, LogOut, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Settings
+  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Fingerprint, Settings
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export type SectionId =
   | 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight'
-  | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards'
+  | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards' | 'cardfusion'
   | 'complaints' | 'activity' | 'governance' | 'admins' | 'settings'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SECTION_IDS: SectionId[] = [
   'overview', 'kyc', 'customers', 'corporate', 'oversight',
-  'compliance', 'loans', 'savings', 'queue', 'cards',
+  'compliance', 'loans', 'savings', 'queue', 'cards', 'cardfusion',
   'complaints', 'activity', 'governance', 'admins', 'settings',
 ]
 
@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { id: 'loans', label: 'Loan Management', icon: <Landmark size={18} /> },
   { id: 'savings', label: 'Savings Management', icon: <PiggyBank size={18} /> },
   { id: 'cards', label: 'Card Management', icon: <CreditCard size={18} /> },
+  { id: 'cardfusion', label: 'CardFusion', icon: <Fingerprint size={18} /> },
   { id: 'queue', label: 'Job Queue', icon: <ServerCog size={18} /> },
   // { id: 'reference', label: 'Reference Data', icon: <Database size={18} /> },
   { id: 'complaints', label: 'Complaints', icon: <ScrollText size={18} /> },

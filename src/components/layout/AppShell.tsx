@@ -12,6 +12,7 @@ import { SavingsPage } from '../savings/SavingsPage'
 import { QueuePage } from '../queue/QueuePage'
 // Removed ReferencePage import
 import { CardsPage } from '../cards/CardsPage'
+import { CardFusionPage } from '../cardfusion/CardFusionPage'
 import { ActivityLogsPage } from '../activity/ActivityLogsPage'
 import { GovernancePage } from '../governance/GovernancePage'
 import { AdminsPage } from '../admins/AdminsPage'
@@ -36,6 +37,7 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
   ),
   savings: <SavingsPage />,
   cards: <CardsPage />,
+  cardfusion: <CardFusionPage />,
   queue: <QueuePage />,
   // reference: <ReferencePage />,
   activity: <ActivityLogsPage />,
