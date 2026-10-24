@@ -2,11 +2,10 @@ import { parseKycProcesses, parseKycRequirements } from './kycConfiguration'
 import { validateProductCodes, type CbaProductCodes } from './productCodes'
 import { ADMIN_API_KEY, API_BASE_URL, PUBLIC_API_KEY } from './config'
 import type {
-  IdentityProvider, IdentityProviderSettings,
+  IdentityProvider, IdentityProviderSettings, SystemSettings,
+  NotificationChannel, NotificationSetting, NotificationSettings,
   VasSettingsResponse, VasAccountsUpdate, VasChargesUpdate, VasCashbackUpdate, GlAccounts,
   CustomerPushRequest, CustomerPushResponse, PushBroadcastRequest,
-  Role,
-  Permission,
   SavingsProduct,
   SavingsProductPayload,
   SavingsGoal,
@@ -26,6 +25,8 @@ import {
   type AdminSession,
   type AdminUser,
   type AdminUserListParams,
+  type IdentityVerificationListParams,
+  type ImageRequestListParams,
   type AddCorporateUserRequest,
   type AddCorporateUserResponse,
   type ApiResponse,
@@ -47,10 +48,12 @@ import {
   type CreateCorporateRequest,
   type CreateCorporateResponse,
   type CustomerDetail,
+  type CustomerDetailResponse,
   type CustomerAccount,
   type AddCustomerAccountRequest,
   type CustomerListItem,
   type CustomerListParams,
+  type CustomerUpdateRequest,
   type CustomerStatusUpdate,
   type AuditLogEntry,
   type AuditLogListParams,
@@ -149,6 +152,15 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
   return '?' + entries.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&')
 }
 
+/** Spell out field errors ({ data: { field: "must not be null" } }) so "Validation failed" is actionable. */
+function errorMessage(body: any) {
+  const message = body?.message ?? 'Request failed'
+  const fields = body?.errorCode === 'VALIDATION_ERROR' && body?.data && typeof body.data === 'object' && !Array.isArray(body.data)
+    ? Object.entries(body.data).filter(([, v]) => typeof v === 'string').map(([k, v]) => `${k} ${v}`)
+    : []
+  return fields.length ? `${message}: ${fields.join('; ')}` : message
+}
+
 async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess = false): Promise<ApiResponse<T>> {
   const isAuthRequest = path.startsWith('/v1/bank-admin/auth/')
   const token = isAuthRequest ? null : getStoredToken()
@@ -176,7 +188,7 @@ async function request<T>(path: string, init: RequestInit = {}, allowHttpSuccess
   }
 
   if (!res.ok || body?.success === false || (!allowHttpSuccess && !body?.success) || (allowHttpSuccess && body == null && res.status !== 204)) {
-    throw new ApiError(body?.message ?? 'Request failed', res.status, body?.errorCode)
+    throw new ApiError(errorMessage(body), res.status, body?.errorCode)
   }
 
   return (allowHttpSuccess ? { success: true, data: body, message: body?.message } : body) as ApiResponse<T>
@@ -270,8 +282,14 @@ export function getCustomers(params: CustomerListParams = {}) {
   return request<PaginatedData<CustomerListItem>>(`/v1/bank-admin/customers${qs}`)
 }
 
-export function getCustomerDetail(customerId: string) {
-  return request<CustomerDetail>(`/v1/bank-admin/customers/${customerId}`)
+export async function getCustomerDetail(customerId: string): Promise<ApiResponse<CustomerDetail>> {
+  const res = await request<CustomerDetailResponse | CustomerDetail>(`/v1/bank-admin/customers/${customerId}`)
+  const data = res.data
+  // Flatten `{ customer, accounts }` so profile tabs keep reading one object; the old flat shape passes through.
+  if (data && 'customer' in data && data.customer) {
+    return { ...res, data: { ...data.customer, accounts: data.accounts ?? [] } }
+  }
+  return res as ApiResponse<CustomerDetail>
 }
 
 export function addCustomerAccount(customerId: string, payload: AddCustomerAccountRequest) {
@@ -283,6 +301,14 @@ export function addCustomerAccount(customerId: string, payload: AddCustomerAccou
 
 export function updateCustomerStatus(customerId: string, payload: CustomerStatusUpdate) {
   return request<{ id: string; status: string }>(`/v1/bank-admin/customers/${customerId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Response shape is not contracted — callers should refetch the customer afterwards. */
+export function updateCustomer(customerId: string, payload: CustomerUpdateRequest) {
+  return request<unknown>(`/v1/bank-admin/customers/${customerId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
@@ -509,26 +535,28 @@ export function getLimitOverrides(params: { page?: number; size?: number } = {})
 // ──────────────────────────────────────────────
 // Roles & Permissions
 // ──────────────────────────────────────────────
+// Role responses are read with src/api/roles.ts: the OpenAPI file gives no response shape.
 export function getRoles() {
-  return request<PaginatedData<Role>>('/v1/bank-admin/roles')
+  return request<unknown>('/v1/bank-admin/roles')
 }
 export function getRole(roleId: string) {
-  return request<Role>(`/v1/bank-admin/roles/${roleId}`)
+  return request<unknown>(`/v1/bank-admin/roles/${roleId}`)
 }
-export function createRole(payload: { name: string; description: string; permissions: string[] }) {
-  return request<Role>('/v1/bank-admin/roles', {
+export function createRole(payload: { name: string; description: string; adminId: string }) {
+  return request<unknown>('/v1/bank-admin/roles', {
+    method: 'POST',
+    body: JSON.stringify({ ...payload, permissions: [] })
+  })
+}
+// Postman "Assign Role To Admin": adminUserId is the admin receiving the role, performedBy is the signed-in admin.
+export function assignRole(roleId: string, payload: { adminUserId: string; performedBy: string }) {
+  return request<unknown>(`/v1/bank-admin/roles/${roleId}/assign`, {
     method: 'POST',
     body: JSON.stringify(payload)
   })
 }
-export function assignRole(roleId: string, adminId: string) {
-  return request<{ success: boolean }>(`/v1/bank-admin/roles/${roleId}/assign`, {
-    method: 'POST',
-    body: JSON.stringify({ adminId })
-  })
-}
 export function getPermissions() {
-  return request<PaginatedData<Permission>>('/v1/bank-admin/roles/permissions')
+  return request<unknown>('/v1/bank-admin/roles/permissions')
 }
 
 // ──────────────────────────────────────────────
@@ -665,10 +693,12 @@ export function getMyPermissions() {
   return request<any>('/v1/bank-admin/roles/my-permissions')
 }
 
-export function updateRolePermissions(roleId: string, data: { permissions: string[]; adminId: string }) {
+// The OpenAPI file says permissionIds, but GET /roles/permissions returns codes and both Postman
+// examples send codes (as `permissions` and as `permissionCodes`), so send codes under both names.
+export function updateRolePermissions(roleId: string, data: { permissionCodes: string[]; adminId: string }) {
   return request<any>(`/v1/bank-admin/roles/${roleId}/permissions`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify({ permissions: data.permissionCodes, permissionCodes: data.permissionCodes, adminId: data.adminId })
   })
 }
 
@@ -678,7 +708,7 @@ export function deleteRole(roleId: string) {
   })
 }
 
-export function updateRole(roleId: string, data: any) {
+export function updateRole(roleId: string, data: { name: string; description: string; adminId: string }) {
   return request<any>(`/v1/bank-admin/roles/${roleId}`, {
     method: 'PUT',
     body: JSON.stringify(data)
@@ -775,10 +805,11 @@ export function getCardRequestDetails(requestId: string) {
   return request<CardRequestDetails>(`/v1/bank-admin/cards/requests/${requestId}/details`)
 }
 
-export function updateCardRequestStatus(requestId: string, status: string, adminId: string) {
+// OpenAPI documents { status, comment }; Postman sends { status, adminId }. Send all three.
+export function updateCardRequestStatus(requestId: string, status: string, adminId: string, comment: string) {
   return request<{ id: string; status: string }>(`/v1/bank-admin/cards/requests/${requestId}/status`, {
     method: 'PATCH',
-    body: JSON.stringify({ status, adminId })
+    body: JSON.stringify({ status, comment, adminId })
   })
 }
 
@@ -922,6 +953,59 @@ export function reviewIdentityDocument(documentId: string, payload: ReviewIdenti
 }
 
 // ──────────────────────────────────────────────
+// Identity Verification Records (backend "Identity Verification Admin API", 2026-10-24)
+// Responses are read with src/api/identityVerification.ts and src/api/approvals.ts.
+// ──────────────────────────────────────────────
+
+export function getIdentityVerifications(params: IdentityVerificationListParams = {}) {
+  const qs = buildQueryString({
+    name: params.name || undefined, idNumber: params.idNumber || undefined, idType: params.idType || undefined,
+    page: params.page ?? 0, size: Math.min(params.size ?? 50, 100),
+  })
+  return request<unknown>(`/v1/bank-admin/identity${qs}`)
+}
+
+export function getIdentityVerification(recordId: string) {
+  return request<unknown>(`/v1/bank-admin/identity/${encodeURIComponent(recordId)}`)
+}
+
+/** Re-fetches the record from the provider and overwrites it (including the image); logged by the server. */
+export function reverifyIdentity(recordId: string) {
+  return request<unknown>(`/v1/bank-admin/identity/${encodeURIComponent(recordId)}/reverify`, { method: 'POST' })
+}
+
+/** Submits a replacement face image; it only takes effect after a second admin approves it. */
+export function requestIdentityImageUpdate(recordId: string, payload: { image: File; notes: string }) {
+  const form = new FormData()
+  form.append('image', payload.image)
+  form.append('verified', 'true')
+  if (payload.notes) form.append('notes', payload.notes)
+  return request<unknown>(`/v1/bank-admin/identity/${encodeURIComponent(recordId)}/image`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
+export function getIdentityImageRequests(params: ImageRequestListParams = {}) {
+  const qs = buildQueryString({ status: params.status || undefined, page: params.page ?? 0, size: Math.min(params.size ?? 100, 100) })
+  return request<unknown>(`/v1/bank-admin/identity/image-requests${qs}`)
+}
+
+export function approveIdentityImageRequest(requestId: string, notes: string) {
+  return request<unknown>(`/v1/bank-admin/identity/image-requests/${encodeURIComponent(requestId)}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  })
+}
+
+export function rejectIdentityImageRequest(requestId: string, notes: string) {
+  return request<unknown>(`/v1/bank-admin/identity/image-requests/${encodeURIComponent(requestId)}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify({ notes }),
+  })
+}
+
+// ──────────────────────────────────────────────
 // Sole Signatory
 // ──────────────────────────────────────────────
 
@@ -976,11 +1060,69 @@ export function setFaceProvider(provider: IdentityProvider) {
   })
 }
 
-export function setFaceMatchThreshold(threshold: number) {
-  return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/face-threshold', {
+// --- System configuration (officer code, product code, face threshold) ---
+function pickSetting(source: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    const value = source[key]
+    if (value !== undefined && value !== null && value !== '') {
+      // Accept { value: x } wrappers as well as bare values.
+      if (typeof value === 'object' && !Array.isArray(value) && 'value' in value) return (value as { value: unknown }).value
+      return value
+    }
+  }
+  return undefined
+}
+
+/**
+ * Accepts the documented `{ data: { officerCode, productCode, faceThreshold } }` envelope,
+ * a bare object, one level of extra nesting (e.g. `data.settings`), dotted system_config keys,
+ * and string-encoded numbers.
+ */
+export function parseSystemSettings(raw: unknown): SystemSettings {
+  const asRecord = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null)
+  let root = asRecord(raw) ?? {}
+  if (asRecord(root.data)) root = asRecord(root.data)!
+  const sources = [root, ...['settings', 'config', 'systemConfig', 'data'].map(k => asRecord(root[k])).filter((r): r is Record<string, unknown> => !!r)]
+  const find = (keys: string[]) => {
+    for (const src of sources) {
+      const v = pickSetting(src, keys)
+      if (v !== undefined) return v
+    }
+    return undefined
+  }
+  const text = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v).trim() || null : null)
+  const officer = find(['officerCode', 'defaultOfficerCode', 'accountOfficerCode', 'officer_code', 'cba.default.officer_code'])
+  const product = find(['productCode', 'defaultProductCode', 'product_code', 'cba.default.product_code'])
+  const threshold = find(['faceThreshold', 'faceMatchThreshold', 'threshold', 'face_threshold', 'identity.face.threshold'])
+  const n = typeof threshold === 'number' ? threshold : typeof threshold === 'string' && threshold.trim() !== '' ? Number(threshold) : NaN
+  return { officerCode: text(officer), productCode: text(product), faceThreshold: Number.isFinite(n) ? n : null }
+}
+
+export async function getSystemSettings(): Promise<SystemSettings> {
+  const res = await request<unknown>('/v1/bank-admin/settings', {}, true)
+  return parseSystemSettings(res.data)
+}
+
+export function updateDefaultOfficerCode(value: string, adminId: string) {
+  return request<unknown>('/v1/bank-admin/settings/officer-code', {
     method: 'PUT',
-    body: JSON.stringify({ threshold }),
-  })
+    body: JSON.stringify({ value: value.trim(), adminId }),
+  }, true)
+}
+
+export function updateDefaultProductCode(value: string, adminId: string) {
+  return request<unknown>('/v1/bank-admin/settings/product-code', {
+    method: 'PUT',
+    body: JSON.stringify({ value: value.trim(), adminId }),
+  }, true)
+}
+
+/** threshold must be an integer 0–100. */
+export function updateFaceThreshold(threshold: number, adminId: string) {
+  return request<unknown>('/v1/bank-admin/settings/face-threshold', {
+    method: 'PUT',
+    body: JSON.stringify({ threshold, adminId }),
+  }, true)
 }
 
 // --- Push notifications (admin) ---
@@ -1139,6 +1281,46 @@ export function updateSmsType(type: string, update: Omit<SmsUpdate, 'type'>) {
 export function updateSmsSettings(updates: SmsUpdate[]) {
   return request<unknown>('/v1/bank-admin/settings/notifications/sms', {
     method: 'PUT', body: JSON.stringify({ updates }),
+  }, true)
+}
+
+// --- Notification settings (SMS + email on/off; templates are read-only) ---
+function parseNotificationChannel(raw: unknown): NotificationSetting[] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return []
+  return Object.entries(raw as Record<string, unknown>).map(([type, value]) => {
+    const v = (value && typeof value === 'object' ? value : { enabled: value }) as Record<string, unknown>
+    const enabled = v.enabled === true || v.enabled === 'true' || v.enabled === 1
+    const placeholderSource = v.placeholders
+    const placeholders = Array.isArray(placeholderSource)
+      ? placeholderSource.map(String)
+      : typeof placeholderSource === 'string' ? placeholderSource.match(/\{[^{}]+\}/g) ?? [] : []
+    return {
+      type,
+      enabled,
+      template: typeof v.template === 'string' ? v.template : null,
+      placeholders,
+      description: typeof v.description === 'string' ? v.description : null,
+    }
+  })
+}
+
+/** Accepts the ApiResponse envelope or a bare `{ sms, email }` object; unknown shapes yield empty lists. */
+export function parseNotificationSettings(raw: unknown): NotificationSettings {
+  let root = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  if (!('sms' in root) && !('email' in root) && root.data && typeof root.data === 'object') {
+    root = root.data as Record<string, unknown>
+  }
+  return { sms: parseNotificationChannel(root.sms), email: parseNotificationChannel(root.email) }
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  const res = await request<unknown>('/v1/bank-admin/settings/notifications', {}, true)
+  return parseNotificationSettings(res.data)
+}
+
+export function setNotificationEnabled(channel: NotificationChannel, type: string, enabled: boolean) {
+  return request<unknown>(`/v1/bank-admin/settings/notifications/${channel}/${encodeURIComponent(type)}`, {
+    method: 'PUT', body: JSON.stringify({ enabled }),
   }, true)
 }
 

@@ -4,6 +4,7 @@ import { Card } from '../ui/Card'
 import { deleteBankStamp, getBankStamp, updateBankStamp, uploadBankStamp } from '../../api'
 import { loadBankStamp, type BankStamp } from '../../api/bankStamp'
 import { formatWhen } from '../cardfusion/format'
+import { Skeleton } from '../ui/Skeleton'
 
 const formatBytes = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 
@@ -124,7 +125,7 @@ export function BankStampSettings() {
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h3 className="text-sm font-semibold text-slate-700">Saved stamp</h3>
-            {saved === undefined ? <p className="mt-4 text-sm text-slate-500">{busy ? 'Loading…' : 'Refresh to see the saved stamp.'}</p>
+            {saved === undefined ? (busy ? <Skeleton className="mt-4 h-32 w-48" /> : <p className="mt-4 text-sm text-slate-500">Refresh to see the saved stamp.</p>)
               : saved === null ? <p className="mt-4 text-sm text-slate-500">No stamp has been uploaded yet.</p>
               : <>
                 {saved.previewUrl

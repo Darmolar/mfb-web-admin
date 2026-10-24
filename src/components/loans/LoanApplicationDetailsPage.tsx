@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { CardSkeleton, LoadingRegion, Skeleton } from '../ui/Skeleton'
 import { ArrowLeft, CheckCircle, XCircle, FileText, CreditCard } from 'lucide-react'
 
 const fmt = (amount: number | undefined | null) =>
@@ -80,8 +81,22 @@ export function LoanApplicationDetailsPage() {
     }
   }
 
-  if (loading) {
-    return <div className="p-8 text-center text-slate-500">Loading application details...</div>
+  // A refetch after an action keeps the current page on screen instead of blanking it.
+  if (loading && !appData) {
+    // Same shape as the page below: header, two info cards, then the requirements card.
+    return (
+      <LoadingRegion label="Loading application details…" className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-9 h-9 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-5 w-56" /><Skeleton className="h-3 w-40" /></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardSkeleton lines={6} />
+          <CardSkeleton lines={6} />
+        </div>
+        <CardSkeleton lines={4} />
+      </LoadingRegion>
+    )
   }
 
   if (error || !appData) {

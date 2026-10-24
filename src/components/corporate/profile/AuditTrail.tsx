@@ -77,12 +77,12 @@ export function AuditTrail({ corporateId }: Props) {
           <button onClick={refetch} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Refresh</button>
         </div>
 
-        {loading && <div className="px-6 py-10 text-center text-xs text-slate-400">Loading audit trail…</div>}
         {error && <div className="px-6 py-6 text-center text-xs text-red-500">{error}</div>}
 
-        {!loading && !error && (
+        {!error && (
           <div className="px-6 py-4">
             <DataTable<AuditLogEntry>
+              loading={loading && !data}
               columns={columns}
               data={logs}
               searchPlaceholder="Search audit trail…"

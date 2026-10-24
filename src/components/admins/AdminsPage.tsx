@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, ShieldCheck, ShieldOff, RefreshCw } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Plus, ShieldCheck, ShieldOff, RefreshCw, Pencil } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -7,8 +7,9 @@ import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
 import {
   getAdminUsers, createAdminUser,
-  updateAdminUserStatus,
+  updateAdminUserStatus, updateAdminUser, getRoles, assignRole,
 } from '../../api'
+import { isSuperAdminRole, readRoles } from '../../api/roles'
 import type { AdminUser } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -40,6 +41,9 @@ function adminCode(id: string) {
   return `ADM-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
 }
 
+/** Built-in roles plus any created in Governance → Role Management, plus the value being edited. */
+const withCurrent = (options: string[], current: string) => (current && !options.includes(current) ? [current, ...options] : options)
+
 function statusVariant(status: string) {
   if (status === 'ACTIVE') return 'green'
   if (status === 'SUSPENDED') return 'red'
@@ -58,6 +62,49 @@ export function AdminsPage() {
   const admins: AdminUser[] = data?.content ?? []
 
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  const canEdit = isSuperAdminRole(user?.role)
+  const rolesApi = useApi(async () => readRoles((await getRoles()).data), [])
+  const roleOptions = useMemo(
+    () => [...new Set([...ROLES, ...(rolesApi.data ?? []).map(r => r.name)])],
+    [rolesApi.data],
+  )
+
+  const [editing, setEditing] = useState<AdminUser | null>(null)
+  const [editForm, setEditForm] = useState({ role: '', department: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  function openEdit(admin: AdminUser) {
+    setEditing(admin)
+    setEditForm({ role: admin.role, department: admin.department })
+    setEditError(null)
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editing || !user) return
+    setSavingEdit(true)
+    setEditError(null)
+    try {
+      // Roles created in Governance have an id and are assigned through the documented assign endpoint.
+      // Department (and built-in roles with no id) go through PATCH /users/{id}, which is not in Postman yet.
+      const managedRole = (rolesApi.data ?? []).find(r => r.name === editForm.role)
+      const roleChanged = editForm.role !== editing.role
+      if (roleChanged && managedRole) {
+        await assignRole(managedRole.id, { adminUserId: editing.id, performedBy: user.adminId })
+      }
+      if (editForm.department !== editing.department || (roleChanged && !managedRole)) {
+        await updateAdminUser(editing.id, { name: editing.name, role: editForm.role, department: editForm.department, adminId: user.adminId })
+      }
+      setEditing(null)
+      refetch()
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update admin')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
 
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState(EMPTY_CREATE)
@@ -154,6 +201,14 @@ export function AdminsPage() {
       cell: (admin) => (
         <div className="flex items-center gap-1">
           <button
+            onClick={() => openEdit(admin)}
+            disabled={!canEdit}
+            className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            title={canEdit ? 'Edit role & department' : `Only a super admin can edit admins (you are signed in as ${user?.role || 'unknown role'})`}
+          >
+            <Pencil size={13} />
+          </button>
+          <button
             onClick={() => handleToggleStatus(admin)}
             disabled={togglingId === admin.id}
             className={`w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer transition-colors ${
@@ -202,7 +257,6 @@ export function AdminsPage() {
           ))}
         </div>
 
-        {loading && <div className="px-6 py-12 text-center text-xs text-slate-400">Loading admins…</div>}
         {error && (
           <div className="px-6 py-10 text-center">
             <p className="text-xs text-red-500 mb-3">{error}</p>
@@ -210,10 +264,11 @@ export function AdminsPage() {
           </div>
         )}
 
-        {!loading && !error && (
+        {!error && (
           <DataTable<AdminUser>
             columns={columns}
             data={admins}
+            loading={loading && !data}
             searchPlaceholder="Search admins…"
             searchFields={['name', 'email', 'role', 'department']}
             emptyMessage="No admins found."
@@ -235,7 +290,7 @@ export function AdminsPage() {
           <div className="grid grid-cols-2 gap-4">
             <AdminField label="Role" required>
               <select className={inputCls} value={createForm.role} onChange={e => setCreateForm(p => ({ ...p, role: e.target.value }))} required>
-                {ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                {roleOptions.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
               </select>
             </AdminField>
             <AdminField label="Department" required>
@@ -252,6 +307,49 @@ export function AdminsPage() {
         </form>
       </Modal>
 
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Admin User" width="max-w-lg">
+        {editing && (
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-4 py-3">
+              <div className="w-8 h-8 rounded-xl bg-slate-700 flex items-center justify-center flex-shrink-0">
+                <span className="text-[11px] font-black text-white">{editing.name.charAt(0)}</span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700">{editing.name}</p>
+                <p className="text-[11px] text-slate-400">{editing.email}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <AdminField label="Role" required>
+                <select className={inputCls} value={editForm.role} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))} required>
+                  {withCurrent(roleOptions, editing.role).map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                </select>
+              </AdminField>
+              <AdminField label="Department" required>
+                <select className={inputCls} value={editForm.department} onChange={e => setEditForm(p => ({ ...p, department: e.target.value }))} required>
+                  {withCurrent(DEPARTMENTS, editing.department).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </AdminField>
+            </div>
+            {editing.id === user?.adminId && editForm.role !== editing.role && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                You are changing your own role. You may lose access to this page after saving.
+              </p>
+            )}
+            {editError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{editError}</p>}
+            <div className="flex gap-3 pt-1">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={savingEdit || (editForm.role === editing.role && editForm.department === editing.department)}
+              >
+                {savingEdit ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </>
   )
 }

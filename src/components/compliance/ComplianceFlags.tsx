@@ -3,6 +3,7 @@ import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
+import { Skeleton } from '../ui/Skeleton'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
 import { getComplianceStats, getComplianceFlags, resolveComplianceFlag } from '../../api'
@@ -114,7 +115,9 @@ export function ComplianceFlags() {
         ].map(item => (
           <div key={item.label} className={`rounded-xl px-5 py-4 ${item.color}`}>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{item.label}</p>
-            <p className="text-2xl font-black mt-1">{stats.loading ? '…' : item.value}</p>
+            {stats.loading && !s
+              ? <Skeleton className="h-7 w-12 mt-1 bg-current opacity-15" />
+              : <p className="text-2xl font-black mt-1">{item.value}</p>}
           </div>
         ))}
       </div>
@@ -136,13 +139,13 @@ export function ComplianceFlags() {
         ))}
       </div>
 
-      {flags.loading && <div className="px-6 py-12 text-center text-sm text-slate-400">Loading…</div>}
       {flags.error && <div className="px-6 py-12 text-center text-sm text-red-500">{flags.error}</div>}
 
-      {!flags.loading && !flags.error && (
+      {!flags.error && (
         <DataTable<ComplianceFlag>
           columns={columns}
           data={flags.data?.content ?? []}
+          loading={flags.loading}
           searchPlaceholder="Search flags…"
           emptyMessage="No compliance flags found."
         />

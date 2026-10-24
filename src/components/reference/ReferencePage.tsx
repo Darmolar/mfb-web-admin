@@ -42,20 +42,16 @@ function TabContent({ tab }: { tab: TabId }) {
   const sectors = useApi<PaginatedData<ReferenceSector>>(() => getSectors().then(r => r.data), tab === 'sectors' ? [] : null)
 
   if (tab === 'countries') {
-    if (countries.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    return <><DataTable<ReferenceCountry> columns={countryColumns} data={countries.data?.content ?? []} searchPlaceholder="Search countries…" emptyMessage="No countries available." /></>
+    return <><DataTable<ReferenceCountry> columns={countryColumns} data={countries.data?.content ?? []} loading={countries.loading && !countries.data} searchPlaceholder="Search countries…" emptyMessage="No countries available." /></>
   }
   if (tab === 'states') {
-    if (states.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    return <><DataTable<ReferenceState> columns={stateColumns} data={states.data?.content ?? []} searchPlaceholder="Search states…" emptyMessage="No states available." /></>
+    return <><DataTable<ReferenceState> columns={stateColumns} data={states.data?.content ?? []} loading={states.loading && !states.data} searchPlaceholder="Search states…" emptyMessage="No states available." /></>
   }
   if (tab === 'towns') {
-    if (towns.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    return <><DataTable<ReferenceTown> columns={townColumns} data={towns.data?.content ?? []} searchPlaceholder="Search towns…" emptyMessage="No towns available." /></>
+    return <><DataTable<ReferenceTown> columns={townColumns} data={towns.data?.content ?? []} loading={towns.loading && !towns.data} searchPlaceholder="Search towns…" emptyMessage="No towns available." /></>
   }
   if (tab === 'sectors') {
-    if (sectors.loading) return <div className="py-12 text-center text-sm text-slate-400">Loading…</div>
-    return <><DataTable<ReferenceSector> columns={sectorColumns} data={sectors.data?.content ?? []} searchPlaceholder="Search sectors…" emptyMessage="No sectors available." /></>
+    return <><DataTable<ReferenceSector> columns={sectorColumns} data={sectors.data?.content ?? []} loading={sectors.loading && !sectors.data} searchPlaceholder="Search sectors…" emptyMessage="No sectors available." /></>
   }
   return null
 }

@@ -10,6 +10,8 @@ export function KYCDocuments({ customer }: Props) {
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Account Status</h4>
         <div className="flex items-center gap-3">
           <Badge label={customer.status} variant={statusBadge(customer.status)} size="md" />
+          {customer.accountTier != null && <Badge label={`Tier ${customer.accountTier}`} variant="blue" size="md" />}
+          {customer.cbaVerified != null && <Badge label={customer.cbaVerified ? 'CBA Verified' : 'CBA Unverified'} variant={customer.cbaVerified ? 'green' : 'amber'} size="md" />}
         </div>
         <p className="text-xs text-slate-500 mt-3">
           KYC document history and tier upgrade requests are managed through the{' '}
@@ -22,6 +24,8 @@ export function KYCDocuments({ customer }: Props) {
         <div className="space-y-3">
           {[
             { label: 'BVN', value: customer.bvn },
+            { label: 'NIN', value: customer.nin },
+            { label: 'Date of Birth', value: customer.dateOfBirth },
             { label: 'Account Number', value: customer.accountNumber },
             { label: 'Email', value: customer.email },
             { label: 'Phone', value: customer.phoneNumber },

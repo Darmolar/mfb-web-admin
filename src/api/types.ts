@@ -233,10 +233,43 @@ export type CustomerAccount = {
   active?: boolean
   primary?: boolean
   createdAt?: string
+  customerId?: string
+  corpAccountId?: string | null
+  productName?: string | null
+  tier?: number | null
+  balanceAsOf?: string | null
+  legacyAccountNumber?: string | null
 }
 
 export type CustomerDetail = CustomerListItem & {
+  coreCustomerId?: string | null
+  legacyAccountNumber?: string | null
+  nin?: string | null
+  middleName?: string | null
+  dateOfBirth?: string | null
+  stateOfOrigin?: string | null
+  lgaOfOrigin?: string | null
+  occupation?: string | null
+  employer?: string | null
+  nextOfKin?: string | null
+  accountOfficerCode?: string | null
+  accountTier?: number | null
+  transactionLimitExpiry?: string | null
+  identityOverriddenAt?: string | null
+  cbaVerified?: boolean
+  cbaVerifiedAt?: string | null
+  cbaVerificationFailedAt?: string | null
+  txnBlocked?: boolean
+  txnBlockReason?: string | null
+  updatedAt?: string | null
+  active?: boolean
   accounts?: CustomerAccount[]
+}
+
+/** GET /bank-admin/customers/{id} now wraps the profile: `{ customer, accounts }`. */
+export type CustomerDetailResponse = {
+  customer: Omit<CustomerDetail, 'accounts'>
+  accounts: CustomerAccount[]
 }
 
 export type AddCustomerAccountRequest = {
@@ -248,6 +281,24 @@ export type AddCustomerAccountRequest = {
 export type CustomerStatusUpdate = {
   status: string
   adminId: string
+}
+
+/** PATCH /bank-admin/customers/{id} — every field optional; send only the ones that changed. */
+export type CustomerUpdateRequest = {
+  firstName?: string
+  lastName?: string
+  middleName?: string
+  email?: string
+  phoneNumber?: string
+  /** YYYY-MM-DD */
+  dateOfBirth?: string
+  residentialAddress?: string
+  stateOfOrigin?: string
+  lgaOfOrigin?: string
+  occupation?: string
+  employer?: string
+  nextOfKin?: string
+  accountOfficerCode?: string
 }
 
 // ──────────────────────────────────────────────
@@ -1068,6 +1119,38 @@ export type IdentityProviderSettings = {
 }
 
 // ──────────────────────────────────────────────
+// System configuration (GET /v1/bank-admin/settings)
+// ──────────────────────────────────────────────
+
+/** Normalised view of the system settings; null when the backend did not return a value. */
+export type SystemSettings = {
+  /** Default CBA account officer code (system_config cba.default.officer_code). */
+  officerCode: string | null
+  /** Default CBA product code for new accounts. */
+  productCode: string | null
+  /** Face-match pass score, 0–100. */
+  faceThreshold: number | null
+}
+
+// ──────────────────────────────────────────────
+// Notification settings (GET /v1/bank-admin/settings/notifications)
+// ──────────────────────────────────────────────
+
+export type NotificationChannel = 'sms' | 'email'
+
+/** One notification type on a channel. SMS rows carry a read-only template; email rows a description. */
+export type NotificationSetting = {
+  type: string
+  enabled: boolean
+  template: string | null
+  /** Placeholder tokens such as "{otp}", already split. */
+  placeholders: string[]
+  description: string | null
+}
+
+export type NotificationSettings = Record<NotificationChannel, NotificationSetting[]>
+
+// ──────────────────────────────────────────────
 // Admin push notifications
 // ──────────────────────────────────────────────
 
@@ -1162,3 +1245,21 @@ export type Complaint = {
 }
 export type ComplaintPage = { content: Complaint[]; totalElements: number; totalPages: number }
 export type ComplaintResponseResult = Pick<Complaint, 'id' | 'status' | 'adminResponse' | 'respondedAt' | 'respondedBy'>
+
+// ──────────────────────────────────────────────
+// Identity Verification Records
+// ──────────────────────────────────────────────
+
+export type IdentityVerificationListParams = {
+  name?: string
+  idNumber?: string
+  idType?: string
+  page?: number
+  size?: number
+}
+
+export type ImageRequestListParams = {
+  status?: string
+  page?: number
+  size?: number
+}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Flag, AlertTriangle, Loader2 } from 'lucide-react'
+import { Download, Flag, AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -46,12 +46,6 @@ export function ActivityLogsPage() {
           </div>
         </div>
 
-        {loading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 size={28} className="animate-spin text-slate-400" />
-          </div>
-        )}
-
         {error && (
           <div className="text-center py-12">
             <p className="text-sm text-red-500 mb-3">{error}</p>
@@ -59,8 +53,9 @@ export function ActivityLogsPage() {
           </div>
         )}
 
-        {!loading && !error && (
+        {!error && (
           <DataTable 
+            loading={loading && !data}
             columns={[
               {
                 header: 'Customer / Actor',

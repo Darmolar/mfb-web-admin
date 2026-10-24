@@ -4,6 +4,7 @@ import type { Complaint, ComplaintStatus } from '../../api/types'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/Button'
+import { LoadingRegion, Skeleton, SkeletonText } from '../ui/Skeleton'
 
 const inputClass = 'w-full rounded-lg border border-slate-200 p-3 text-sm'
 export function ComplaintsPage() {
@@ -54,7 +55,17 @@ export function ComplaintsPage() {
     {error && <p role="alert" className="text-red-700">{error}</p>}
     <div className="grid lg:grid-cols-2 gap-5">
       <div className="bg-white rounded-xl p-4 space-y-3">
-        {loading ? <p>Loading complaints…</p> : !error && <>
+        {loading && !data ? (
+          // Shaped like the complaint buttons below.
+          <LoadingRegion label="Loading complaints…" className="space-y-3">
+            <Skeleton className="h-3 w-24" />
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="border rounded-lg p-3 space-y-2">
+                <Skeleton className="h-3.5 w-3/5" /><Skeleton className="h-3 w-2/5" /><Skeleton className="h-2.5 w-1/3" />
+              </div>
+            ))}
+          </LoadingRegion>
+        ) : !error && <div className={`space-y-3 ${loading ? 'opacity-60' : ''}`} aria-busy={loading || undefined}>
           <p className="text-sm text-slate-500">{data?.totalElements ?? 0} complaints</p>
           {data?.content.length === 0 && <p>No complaints found.</p>}
           {data?.content.map(item => <button key={item.id} disabled={saving} onClick={() => open(item.id)} className="block w-full text-left border rounded-lg p-3 hover:bg-slate-50 disabled:opacity-50">
@@ -62,7 +73,7 @@ export function ComplaintsPage() {
             <p className="text-sm text-slate-600">{item.submitterName} · {item.submitterEmail}</p>
             <p className="text-xs text-slate-500">{item.status.replace('_', ' ')} · {item.createdAt.replace('T', ' ')}</p>
           </button>)}
-        </>}
+        </div>}
         <div className="flex items-center justify-between">
           <Button variant="secondary" disabled={loading || saving || page === 0} onClick={() => setPage(p => p - 1)}>Previous</Button>
           <span>Page {page + 1}</span>
@@ -70,7 +81,15 @@ export function ComplaintsPage() {
         </div>
       </div>
       <div className="bg-white rounded-xl p-5 space-y-4">
-        {detailLoading && <p>Loading complaint…</p>}
+        {detailLoading && (
+          <LoadingRegion label="Loading complaint…" className="space-y-4">
+            <Skeleton className="h-5 w-3/5" />
+            <Skeleton className="h-3.5 w-2/5" />
+            <Skeleton className="h-3 w-1/3" />
+            <SkeletonText lines={4} />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </LoadingRegion>
+        )}
         {!!detailError && <p role="alert" className="text-red-700">{detailError}</p>}
         {!!notice && <p role="status" className="text-green-700">{notice}</p>}
         {!selected && !detailLoading && <p>Select a complaint to view it and respond.</p>}

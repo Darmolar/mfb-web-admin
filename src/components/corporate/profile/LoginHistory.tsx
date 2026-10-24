@@ -76,12 +76,12 @@ export function LoginHistory({ corporateId }: Props) {
           <button onClick={refetch} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Refresh</button>
         </div>
 
-        {loading && <div className="px-6 py-10 text-center text-xs text-slate-400">Loading login history…</div>}
         {error && <div className="px-6 py-6 text-center text-xs text-red-500">{error}</div>}
 
-        {!loading && !error && (
+        {!error && (
           <div className="px-6 py-4">
             <DataTable<LoginHistoryEntry>
+              loading={loading && !data}
               columns={columns}
               data={entries}
               searchPlaceholder="Search login history…"

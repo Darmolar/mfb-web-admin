@@ -167,14 +167,13 @@ export function SavingsProducts() {
         <Button onClick={openCreate}><Plus size={14} /> New Product</Button>
       </div>
 
-      {products.loading ? (
-        <p className="text-sm text-slate-400 py-12 text-center">Loading…</p>
-      ) : products.error ? (
+      {products.error ? (
         <p className="text-sm text-red-500 py-12 text-center">{products.error}</p>
       ) : (
         <DataTable<SavingsProduct>
           columns={columns}
           data={products.data ?? []}
+          loading={products.loading && !products.data}
           searchPlaceholder="Search products…"
           emptyMessage="No savings products yet."
         />

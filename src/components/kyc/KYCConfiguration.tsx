@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { createKycProcess, createKycRequirement, updateKycProcess, updateKycRequirement, getKycProcesses, getKycRequirements, deleteKycRequirement, deleteKycProcess } from '../../api'
 import type { CreateKycProcess, CreateKycRequirement } from '../../api/dynamicKycTypes'
 import type { KycProcess, ConfiguredKycRequirement } from '../../api/kycConfiguration'
 import { Button } from '../ui/Button'
+import { useApi } from '../../hooks/useApi'
+import { ListSkeleton, LoadingRegion, Skeleton } from '../ui/Skeleton'
 
 const blankProcess: CreateKycProcess = { code: '', name: '', description: '', category: 'INFO_UPDATE' }
 const blankRequirement: CreateKycRequirement = { requirementType: 'FIELD', fieldKey: '', label: '', description: '', required: true, sortOrder: 1 }
@@ -21,34 +23,22 @@ export function KYCConfiguration() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  const [processes, setProcesses] = useState<KycProcess[]>([])
   const [selectedCode, setSelectedCode] = useState('')
-  const [requirements, setRequirements] = useState<ConfiguredKycRequirement[]>([])
   const [refresh, setRefresh] = useState(0)
   // Requirement edits reload only the requirement list, not every process.
   const [requirementsRefresh, setRequirementsRefresh] = useState(0)
-  const [listError, setListError] = useState('')
-  const [requirementsError, setRequirementsError] = useState('')
-  const [loadingList, setLoadingList] = useState(true)
-  const [loadingRequirements, setLoadingRequirements] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    setLoadingList(true); setListError('')
-    void getKycProcesses().then(items => { if (!cancelled) setProcesses(items) })
-      .catch(e => { if (!cancelled) setListError(e.message || 'Could not load processes.') })
-      .finally(() => { if (!cancelled) setLoadingList(false) })
-    return () => { cancelled = true }
-  }, [refresh])
-  useEffect(() => {
-    let cancelled = false
-    setRequirements([]); setRequirementsError('')
-    if (!selectedCode) { setLoadingRequirements(false); return }
-    setLoadingRequirements(true)
-    void getKycRequirements(selectedCode).then(items => { if (!cancelled) setRequirements(items) })
-      .catch(e => { if (!cancelled) setRequirementsError(e.message || 'Could not load requirements.') })
-      .finally(() => { if (!cancelled) setLoadingRequirements(false) })
-    return () => { cancelled = true }
-  }, [selectedCode, refresh, requirementsRefresh])
+  const processesApi = useApi(() => getKycProcesses(), [refresh])
+  const processes: KycProcess[] = processesApi.data ?? []
+  const loadingList = processesApi.loading
+  const listError = processesApi.error ? processesApi.error || 'Could not load processes.' : ''
+  // The result carries its process code so a previous process's requirements never show under a new selection.
+  const requirementsApi = useApi(
+    async () => ({ code: selectedCode, items: selectedCode ? await getKycRequirements(selectedCode) : [] as ConfiguredKycRequirement[] }),
+    [selectedCode, refresh, requirementsRefresh],
+  )
+  const loadingRequirements = !!selectedCode && (requirementsApi.loading || requirementsApi.data?.code !== selectedCode) && !requirementsApi.error
+  const requirements = !loadingRequirements && requirementsApi.data?.code === selectedCode ? requirementsApi.data.items : []
+  const requirementsError = selectedCode && requirementsApi.error ? requirementsApi.error || 'Could not load requirements.' : ''
 
   function selectProcess(code: string) {
     setSelectedCode(code); setProcessCode(code); setRequirement(blankRequirement); setRequirementId(''); setEditRequirement(false)
@@ -133,11 +123,11 @@ export function KYCConfiguration() {
         <Button disabled={busy || loadingList || loadingRequirements} onClick={() => setRefresh(n => n + 1)}>Refresh configuration</Button>
         {selectedCode && <Button variant="danger" disabled={busy || loadingList} onClick={() => void removeProcess(selectedCode)}>Delete process</Button>}
       </div>
-      {loadingList && <p role="status">Loading processes…</p>}
+      {loadingList && <LoadingRegion label="Loading processes…" className="space-y-2"><Skeleton className="h-3 w-56" /><Skeleton className="h-3 w-40" /></LoadingRegion>}
       {listError && <p role="alert" className="text-red-700">{listError}</p>}
       {selectedCode && <>
         <h3 className="font-semibold">Requirements for {selectedCode}</h3>
-        {loadingRequirements ? <p role="status">Loading requirements…</p> : requirementsError ? <p role="alert" className="text-red-700">{requirementsError}</p> : requirements.length === 0 ? <p>No requirements configured yet.</p> :
+        {loadingRequirements ? <ListSkeleton rows={3} avatar={false} action className="-mx-4 sm:-mx-5" /> : requirementsError ? <p role="alert" className="text-red-700">{requirementsError}</p> : requirements.length === 0 ? <p>No requirements configured yet.</p> :
           <ul className="divide-y divide-slate-100">{requirements.map(r => <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div><p className="font-medium">{r.label} <span className="text-sm text-slate-500">({r.required ? 'Required' : 'Optional'})</span></p><p className="text-sm text-slate-500">{r.requirementType === 'FIELD' ? 'Text field' : 'Document'} · {r.fieldKey} · Order {r.sortOrder}</p><p className="text-sm">{r.description}</p></div>
             <div className="flex gap-2"><Button disabled={busy} onClick={() => { setRequirement({ ...r, description: r.description || '' }); setRequirementId(r.id); setProcessCode(r.processCode); setEditRequirement(true); setMessage(''); setError('') }}>Edit {r.label}</Button>

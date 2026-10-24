@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { StatCard } from '../ui/StatCard'
 import { Card } from '../ui/Card'
 import { Badge, statusBadge } from '../ui/Badge'
+import { ListSkeleton, Skeleton } from '../ui/Skeleton'
 import { useApi } from '../../hooks/useApi'
 import { getKycStats, getKycPending, getComplianceStats, getTransactions, getDashboardSummary } from '../../api'
 import type { KycStats, KycPendingItem, ComplianceStats, PaginatedData, DashboardSummary } from '../../api/types'
@@ -14,8 +15,21 @@ function fmt(n: number) {
   return `₦${n}`
 }
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-slate-200 rounded-xl ${className}`} />
+type StatProps = React.ComponentProps<typeof StatCard> & { loading: boolean }
+
+/** A StatCard, or a placeholder of the same shape until its first data arrives. */
+function Stat({ loading, ...props }: StatProps) {
+  if (!loading) return <StatCard {...props} />
+  return (
+    <div aria-hidden="true" className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex items-start gap-4">
+      <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-2.5 w-20" />
+        <Skeleton className="h-6 w-16" />
+        <Skeleton className="h-2.5 w-24" />
+      </div>
+    </div>
+  )
 }
 
 export function OverviewPage() {
@@ -54,41 +68,46 @@ export function OverviewPage() {
     <div className="space-y-6">
       {/* Platform summary */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard
+        <Stat
+          loading={summary.loading && !s}
           label="Total Customers"
-          value={summary.loading ? '…' : s?.totalCustomers ?? 0}
+          value={s?.totalCustomers ?? 0}
           sub="All registered"
           icon={<Users size={18} />}
           accent="bg-slate-100 text-slate-600"
           onClick={() => navigate('/customers')}
         />
-        <StatCard
+        <Stat
+          loading={summary.loading && !s}
           label="Active Accounts"
-          value={summary.loading ? '…' : s?.activeAccounts ?? 0}
+          value={s?.activeAccounts ?? 0}
           sub="Currently active"
           icon={<UserCheck size={18} />}
           accent="bg-blue-50 text-blue-600"
           onClick={() => navigate('/customers')}
         />
-        <StatCard
+        <Stat
+          loading={summary.loading && !s}
           label="Pending KYC"
-          value={summary.loading ? '…' : s?.pendingKyc ?? 0}
+          value={s?.pendingKyc ?? 0}
           sub="Awaiting review"
           icon={<ShieldCheck size={18} />}
           accent="bg-amber-50 text-amber-600"
           onClick={() => navigate('/kyc')}
         />
-        <StatCard
+        <Stat
+          loading={summary.loading && !s}
           label="Total Loan Book"
-          value={summary.loading ? '…' : s ? fmt(s.totalLoanBook ?? 0) : '…'}
+          value={fmt(s?.totalLoanBook ?? 0)}
           sub="Outstanding"
           icon={<Banknote size={18} />}
           accent="bg-emerald-50 text-emerald-600"
           onClick={() => navigate('/loans')}
         />
-        <StatCard
+        <Stat
+          loading={summary.loading && !s}
           label="Recent Signups"
-          value={summary.loading ? '…' : s?.recentSignups ?? 0}
+          value={s?.recentSignups ?? 0}
           sub="Last 7 days"
           icon={<Landmark size={18} />}
           accent="bg-purple-50 text-purple-600"
@@ -98,33 +117,37 @@ export function OverviewPage() {
 
       {/* Stat cards — row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
+        <Stat
+          loading={kycStats.loading && !kStats}
           label="KYC Pending"
-          value={kycStats.loading ? '…' : kStats?.pending ?? 0}
+          value={kStats?.pending ?? 0}
           sub="Awaiting review"
           icon={<ShieldCheck size={18} />}
           accent="bg-amber-50 text-amber-600"
           onClick={() => navigate('/kyc')}
         />
-        <StatCard
+        <Stat
+          loading={kycStats.loading && !kStats}
           label="KYC Approved"
-          value={kycStats.loading ? '…' : kStats?.approved ?? 0}
+          value={kStats?.approved ?? 0}
           sub={`${kStats?.rejected ?? 0} rejected`}
           icon={<ShieldCheck size={18} />}
           accent="bg-blue-50 text-blue-600"
           onClick={() => navigate('/kyc')}
         />
-        <StatCard
+        <Stat
+          loading={kycStats.loading && !kStats}
           label="High Risk"
-          value={kycStats.loading ? '…' : kStats?.highRisk ?? 0}
+          value={kStats?.highRisk ?? 0}
           sub="Requires attention"
           icon={<AlertTriangle size={18} />}
           accent="bg-red-50 text-red-600"
           onClick={() => navigate('/compliance')}
         />
-        <StatCard
+        <Stat
+          loading={complianceStats.loading && !cStats}
           label="Compliance Open"
-          value={complianceStats.loading ? '…' : cStats?.open ?? 0}
+          value={cStats?.open ?? 0}
           sub={`${cStats?.underReview ?? 0} under review`}
           icon={<Activity size={18} />}
           accent="bg-emerald-50 text-emerald-600"
@@ -134,25 +157,28 @@ export function OverviewPage() {
 
       {/* Stat cards — row 2 */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard
+        <Stat
+          loading={complianceStats.loading && !cStats}
           label="Compliance Resolved"
-          value={complianceStats.loading ? '…' : cStats?.resolved ?? 0}
+          value={cStats?.resolved ?? 0}
           sub="All time"
           icon={<TrendingUp size={18} />}
           accent="bg-emerald-50 text-emerald-600"
           onClick={() => navigate('/compliance')}
         />
-        <StatCard
+        <Stat
+          loading={complianceStats.loading && !cStats}
           label="Flags Under Review"
-          value={complianceStats.loading ? '…' : cStats?.underReview ?? 0}
+          value={cStats?.underReview ?? 0}
           sub="In progress"
           icon={<ArrowLeftRight size={18} />}
           accent="bg-purple-50 text-purple-600"
           onClick={() => navigate('/compliance')}
         />
-        <StatCard
+        <Stat
+          loading={kycStats.loading && !kStats}
           label="KYC Total Processed"
-          value={kycStats.loading ? '…' : ((kStats?.approved ?? 0) + (kStats?.rejected ?? 0))}
+          value={((kStats?.approved ?? 0) + (kStats?.rejected ?? 0))}
           sub="Approved + Rejected"
           icon={<Users size={18} />}
           accent="bg-slate-100 text-slate-600"
@@ -164,10 +190,8 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Pending KYC Applications</h3>
-          {kycPending.loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
+          {kycPending.loading && !kycPending.data ? (
+            <ListSkeleton rows={4} avatar={false} className="-mx-4 sm:-mx-5" />
           ) : kycPending.error ? (
             <p className="text-xs text-red-500">{kycPending.error}</p>
           ) : (kycPending.data?.content ?? []).length === 0 ? (
@@ -192,10 +216,8 @@ export function OverviewPage() {
 
         <Card>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Recent Transactions</h3>
-          {recentTx.loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
+          {recentTx.loading && !recentTx.data ? (
+            <ListSkeleton rows={4} avatar={false} className="-mx-4 sm:-mx-5" />
           ) : recentTx.error ? (
             <p className="text-xs text-red-500">{recentTx.error}</p>
           ) : (recentTx.data?.content ?? []).length === 0 ? (

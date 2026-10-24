@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getSmsSettings, getSmsTypes, updateSmsSettings, updateSmsType, type SmsSetting, type SmsTypeMetadata } from '../../api'
 import { Button } from '../ui/Button'
+import { FormSkeleton } from '../ui/Skeleton'
 
 export function SmsSettings() {
   const [saved, setSaved] = useState<Record<string, SmsSetting>>({})
@@ -62,7 +63,7 @@ export function SmsSettings() {
     </div>
     {error && <p role="alert" className="text-red-700">{error}</p>}
     {notice && <p role="status" className="text-green-700">{notice}</p>}
-    {loading ? <p>Loading SMS settings…</p> : Object.keys(draft).length === 0 ? <Button onClick={() => { setLoading(true); setError(''); void load() }}>Retry loading settings</Button> :
+    {loading ? <div className="space-y-4">{[0, 1, 2].map(i => <FormSkeleton key={i} fields={1} columns={1} />)}</div> : Object.keys(draft).length === 0 ? <Button onClick={() => { setLoading(true); setError(''); void load() }}>Retry loading settings</Button> :
       Object.entries(draft).map(([type, value]) => <section key={type} className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
         <div className="flex justify-between gap-4"><h3 className="font-semibold capitalize">{type.replaceAll('_', ' ')}</h3>
           <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={value.enabled} disabled={saving} onChange={e => setDraft(current => ({ ...current, [type]: { ...current[type], enabled: e.target.checked } }))} />Enabled</label></div>

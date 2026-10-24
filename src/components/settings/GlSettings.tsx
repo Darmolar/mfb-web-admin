@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { useApi } from '../../hooks/useApi'
 import { getGlAccounts, updateGlAccounts } from '../../api'
 import type { GlAccounts } from '../../api/types'
+import { FormSkeleton } from '../ui/Skeleton'
 
 const FIELDS: { id: keyof GlAccounts; label: string; desc: string }[] = [
   { id: 'loanGlAccount', label: 'Loan GL account', desc: 'Ledger account loan disbursements and repayments post to.' },
@@ -57,9 +58,7 @@ export function GlSettings() {
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={28} className="animate-spin text-slate-400" />
-      </div>
+      <FormSkeleton fields={6} />
     )
   }
 
