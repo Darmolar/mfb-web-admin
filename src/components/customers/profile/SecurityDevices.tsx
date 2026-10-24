@@ -4,6 +4,7 @@ import { useApi } from '../../../hooks/useApi'
 import { getCustomerDevices, getCustomerLoginHistory, revokeDevice } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
 import moment from 'moment'
+import { LoadingRegion, Skeleton } from '../../ui/Skeleton'
 
 interface Props { customerId: string }
 
@@ -27,6 +28,10 @@ export function SecurityDevices({ customerId }: Props) {
     } catch { /* handled silently — could add toast */ }
   }
 
+  // Placeholders only on first load; a refresh keeps the current list on screen.
+  const devicesPending = devices.loading && !devices.data
+  const loginsPending = logins.loading && !logins.data
+
   return (
     <div className="space-y-5">
       {/* Registered Devices */}
@@ -36,14 +41,23 @@ export function SecurityDevices({ customerId }: Props) {
           <button onClick={devices.refetch} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Refresh</button>
         </div>
 
-        {devices.loading && <p className="text-xs text-slate-400">Loading devices…</p>}
+        {devicesPending && (
+          <LoadingRegion className="space-y-3">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-1/2" /><Skeleton className="h-2.5 w-1/3" /></div>
+              </div>
+            ))}
+          </LoadingRegion>
+        )}
         {devices.error && <p className="text-xs text-red-500">{devices.error}</p>}
 
-        {!devices.loading && !devices.error && (devices.data ?? []).length === 0 && (
+        {!devicesPending && !devices.error && (devices.data ?? []).length === 0 && (
           <p className="text-sm text-slate-400">No registered devices.</p>
         )}
 
-        {!devices.loading && !devices.error && (devices.data ?? []).length > 0 && (
+        {!devicesPending && !devices.error && (devices.data ?? []).length > 0 && (
           <div className="space-y-3">
             {(devices.data ?? []).map(d => (
               <div key={d.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
@@ -79,14 +93,23 @@ export function SecurityDevices({ customerId }: Props) {
           <button onClick={logins.refetch} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Refresh</button>
         </div>
 
-        {logins.loading && <p className="text-xs text-slate-400">Loading login history…</p>}
+        {loginsPending && (
+          <LoadingRegion className="space-y-3">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-1/2" /><Skeleton className="h-2.5 w-1/3" /></div>
+              </div>
+            ))}
+          </LoadingRegion>
+        )}
         {logins.error && <p className="text-xs text-red-500">{logins.error}</p>}
 
-        {!logins.loading && !logins.error && loginEntries.length === 0 && (
+        {!loginsPending && !logins.error && loginEntries.length === 0 && (
           <p className="text-sm text-slate-400">No login history found.</p>
         )}
 
-        {!logins.loading && !logins.error && loginEntries.length > 0 && (
+        {!loginsPending && !logins.error && loginEntries.length > 0 && (
           <div className="space-y-3">
             {loginEntries.map(entry => (
               <div key={entry.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">

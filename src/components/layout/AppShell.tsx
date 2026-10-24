@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { Sidebar, type SectionId, SECTION_IDS } from './Sidebar'
 import { TopBar } from './TopBar'
@@ -21,10 +22,18 @@ import { SettingsPage } from '../settings/SettingsPage'
 
 import { Routes, Route } from 'react-router-dom'
 import { LoanApplicationDetailsPage } from '../loans/LoanApplicationDetailsPage'
+import { IdentityVerificationPage } from '../identity/IdentityVerificationPage'
+import { IdentityRecordDetails } from '../identity/IdentityRecordDetails'
 
 const sectionComponents: Record<SectionId, React.ReactNode> = {
   overview: <OverviewPage />,
   kyc: <KYCPage />,
+  identity: (
+    <Routes>
+      <Route index element={<IdentityVerificationPage />} />
+      <Route path=":id" element={<IdentityRecordDetails />} />
+    </Routes>
+  ),
   customers: <CustomersPage />,
   corporate: <CorporatePage />,
   oversight: <OversightPage />,
@@ -49,6 +58,10 @@ const sectionComponents: Record<SectionId, React.ReactNode> = {
 
 export function AppShell() {
   const { section = 'overview' } = useParams<{ section: string }>()
+  const [navOpen, setNavOpen] = useState(false)
+  // Close the mobile menu after navigating.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setNavOpen(false), [section])
 
   if (!SECTION_IDS.includes(section as SectionId)) {
     return <Navigate to="/overview" replace />
@@ -58,10 +71,10 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-[#fdf4f4]">
-      <Sidebar active={activeSection} />
-      <TopBar activeSection={activeSection} />
-      <main className="ml-60 pt-14 min-h-screen">
-        <div className="p-6">
+      <Sidebar active={activeSection} open={navOpen} onClose={() => setNavOpen(false)} />
+      <TopBar activeSection={activeSection} onMenu={() => setNavOpen(true)} />
+      <main className="lg:ml-60 pt-14 min-h-screen">
+        <div className="p-4 sm:p-6">
           {sectionComponents[activeSection]}
         </div>
       </main>

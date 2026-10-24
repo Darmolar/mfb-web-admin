@@ -84,7 +84,8 @@ export function CardFusionStaff() {
         data={staff}
         searchPlaceholder="Search by name, code or email..."
         searchFields={['name', 'staffCode', 'email']}
-        emptyMessage={loading ? 'Loading staff users...' : 'No CardFusion staff yet.'}
+        loading={loading && !data}
+        emptyMessage="No CardFusion staff yet."
       />
 
       <Modal open={open} onClose={close} title={created ? 'Staff Account Created' : 'Add CardFusion Staff'} width="max-w-md">

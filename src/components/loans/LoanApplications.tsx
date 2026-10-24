@@ -166,13 +166,13 @@ export function LoanApplications() {
         ))}
       </div>
 
-      {apps.loading && <div className="px-6 py-12 text-center text-sm text-slate-400">Loading…</div>}
       {apps.error && <div className="px-6 py-12 text-center text-sm text-red-500">{apps.error}</div>}
 
-      {!apps.loading && !apps.error && (
+      {!apps.error && (
         <DataTable<LoanApplication>
           columns={columns}
           data={apps.data?.content ?? []}
+          loading={apps.loading && !apps.data}
           searchPlaceholder="Search applications…"
           emptyMessage="No applications found."
         />

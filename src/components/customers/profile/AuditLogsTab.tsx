@@ -61,11 +61,11 @@ export function AuditLogsTab({ customerId }: Props) {
       </div>
 
       <div className="p-5">
-        {logs.loading && <p className="text-sm text-slate-400 text-center py-8">Loading audit logs…</p>}
         {logs.error && <p className="text-sm text-red-500 text-center py-8">{logs.error}</p>}
         
-        {!logs.loading && !logs.error && (
+        {!logs.error && (
           <DataTable<AuditLogEntry>
+            loading={logs.loading && !logs.data}
             columns={columns}
             data={logs.data?.content ?? []}
             emptyMessage="No audit logs found for this customer."

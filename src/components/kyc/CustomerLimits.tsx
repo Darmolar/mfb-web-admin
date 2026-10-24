@@ -1,4 +1,4 @@
-import { Clock, Loader2 } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { useApi } from '../../hooks/useApi'
@@ -56,12 +56,6 @@ export function CustomerLimits() {
         <button onClick={refetch} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">Refresh</button>
       </div>
 
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-slate-400" />
-        </div>
-      )}
-
       {error && (
         <div className="text-center py-12">
           <p className="text-sm text-red-500 mb-3">{error}</p>
@@ -69,7 +63,7 @@ export function CustomerLimits() {
         </div>
       )}
 
-      {!loading && !error && (
+      {!error && (
         <>
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100">
@@ -79,6 +73,7 @@ export function CustomerLimits() {
               <DataTable<LimitOverrideItem>
                 columns={columns}
                 data={overrides}
+                loading={loading && !data}
                 searchPlaceholder="Search overrides…"
                 emptyMessage="No limit overrides found."
               />

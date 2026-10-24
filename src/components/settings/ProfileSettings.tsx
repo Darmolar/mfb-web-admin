@@ -1,10 +1,11 @@
 import { useAuth } from '../../context/AuthContext'
+import { DetailSkeleton } from '../ui/Skeleton'
 
 export function ProfileSettings() {
   const { user } = useAuth()
 
   if (!user) {
-    return <div className="p-4 bg-white rounded-lg border border-slate-200">Loading user data...</div>
+    return <DetailSkeleton fields={4} />
   }
 
   return (

@@ -28,12 +28,12 @@ export function TabBar({ tabs, active, onChange, variant = 'pills' }: TabBarProp
   }
 
   return (
-    <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+    <div className="flex flex-nowrap sm:flex-wrap gap-1 bg-slate-100 p-1 rounded-xl w-fit max-w-full overflow-x-auto">
       {tabs.map(tab => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${active === tab.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${active === tab.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
           {tab.label}
         </button>

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
+import { Skeleton } from '../ui/Skeleton'
 import { useApi } from '../../hooks/useApi'
 import { getCustomers } from '../../api'
 import type { CustomerListItem, PaginatedData } from '../../api/types'
@@ -88,16 +89,18 @@ export function CustomersPage() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">{totalElements} users</span>
+          {customers.loading && !customers.data
+            ? <Skeleton className="h-3 w-14" />
+            : <span className="text-xs text-slate-400">{totalElements} users</span>}
 
         </div>
       </div>
 
-      {customers.loading && <div className="px-6 py-12 text-center text-sm text-slate-400">Loading…</div>}
       {customers.error && <div className="px-6 py-12 text-center text-sm text-red-500">{customers.error}</div>}
 
-      {!customers.loading && !customers.error && (
+      {!customers.error && (
         <DataTable<CustomerListItem>
+          loading={customers.loading && !customers.data}
           columns={columns}
           data={items}
           searchPlaceholder="Search customers…"

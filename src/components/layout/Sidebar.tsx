@@ -1,19 +1,19 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
   ScrollText, Scale, LogOut, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Fingerprint, Settings
+  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Fingerprint, Settings, ScanFace
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export type SectionId =
-  | 'overview' | 'kyc' | 'customers' | 'corporate' | 'oversight'
+  | 'overview' | 'kyc' | 'identity' | 'customers' | 'corporate' | 'oversight'
   | 'compliance' | 'loans' | 'savings' | 'queue' | 'cards' | 'cardfusion'
   | 'complaints' | 'activity' | 'governance' | 'admins' | 'settings'
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SECTION_IDS: SectionId[] = [
-  'overview', 'kyc', 'customers', 'corporate', 'oversight',
+  'overview', 'kyc', 'identity', 'customers', 'corporate', 'oversight',
   'compliance', 'loans', 'savings', 'queue', 'cards', 'cardfusion',
   'complaints', 'activity', 'governance', 'admins', 'settings',
 ]
@@ -27,6 +27,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={18} /> },
   { id: 'kyc', label: 'KYC & Compliance', icon: <ShieldCheck size={18} /> },
+  { id: 'identity', label: 'Identity Verification', icon: <ScanFace size={18} /> },
   { id: 'customers', label: 'Customers', icon: <Users size={18} /> },
   { id: 'corporate', label: 'Corporate Banking', icon: <Building2 size={18} /> },
   { id: 'oversight', label: 'Transaction Oversight', icon: <ArrowLeftRight size={18} /> },
@@ -46,14 +47,19 @@ const navItems: NavItem[] = [
 
 interface SidebarProps {
   active: SectionId
+  /** Below the lg breakpoint the sidebar is a drawer; on desktop it is always shown. */
+  open?: boolean
+  onClose?: () => void
 }
 
-export function Sidebar({ active }: SidebarProps) {
+export function Sidebar({ active, open = false, onClose }: SidebarProps) {
   const { logout } = useAuth()
   const navigate = useNavigate()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-60 bg-[#242a37] flex flex-col z-40">
+    <>
+    {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} aria-hidden="true" />}
+    <aside className={`fixed left-0 top-0 h-full w-60 bg-[#242a37] flex flex-col z-50 lg:z-40 transition-transform duration-200 lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="px-5 py-6 border-b border-white/10">
         <div className="flex items-center mb-1">
           <img src="/user-logo.png" alt="Logo" className="h-8 object-contain" />
@@ -88,5 +94,6 @@ export function Sidebar({ active }: SidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   )
 }

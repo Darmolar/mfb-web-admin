@@ -14,6 +14,7 @@ import { CorpTransactionHistory } from './CorpTransactionHistory'
 import { LoginHistory } from './LoginHistory'
 import { AuditTrail } from './AuditTrail'
 import { CorporateLimits } from './CorporateLimits'
+import { CardSkeleton, DetailSkeleton } from '../../ui/Skeleton'
 
 const tabs = [
   { id: 'accounts', label: 'Institutional Accounts' },
@@ -41,9 +42,13 @@ export function EntityProfile({ corporateId, onBack }: Props) {
     [corporateId],
   )
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-24">
-      <Loader2 size={32} className="animate-spin text-slate-400" />
+  if (loading && !detail) return (
+    <div className="space-y-5">
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">
+        <ArrowLeft size={16} /> Back to Corporate Banking
+      </button>
+      <DetailSkeleton fields={6} />
+      <CardSkeleton lines={5} />
     </div>
   )
 

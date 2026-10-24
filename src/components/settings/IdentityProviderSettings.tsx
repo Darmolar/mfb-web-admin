@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Loader2, Fingerprint, ScanFace, IdCard, SlidersHorizontal, Save, RefreshCw } from 'lucide-react'
+import { Loader2, Fingerprint, ScanFace, IdCard, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useApi } from '../../hooks/useApi'
 import {
-  getIdentityProviderSettings, setBvnProvider, setNinProvider, setFaceProvider, setFaceMatchThreshold,
+  getIdentityProviderSettings, setBvnProvider, setNinProvider, setFaceProvider,
 } from '../../api'
 import type { IdentityProvider } from '../../api/types'
+import { FormSkeleton } from '../ui/Skeleton'
 
 const PROVIDERS: IdentityProvider[] = ['ISW', 'NIBSS']
 const PROVIDER_LABEL: Record<IdentityProvider, string> = { ISW: 'Interswitch', NIBSS: 'NIBSS' }
@@ -39,13 +40,10 @@ export function IdentityProviderSettings() {
   )
   const [saving, setSaving] = useState<string | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [thresholdInput, setThresholdInput] = useState<string | null>(null)
 
   const bvn = String(data?.['identity.provider.bvn'] ?? '')
   const nin = String(data?.['identity.provider.nin'] ?? 'ISW')
   const face = String(data?.['identity.provider.face'] ?? '')
-  const threshold = String(data?.['identity.face.threshold'] ?? '')
-  const thresholdValue = thresholdInput ?? threshold
 
   const run = async (key: string, fn: () => Promise<unknown>, okText: string) => {
     setSaving(key)
@@ -53,7 +51,6 @@ export function IdentityProviderSettings() {
     try {
       await fn()
       setMessage({ ok: true, text: okText })
-      setThresholdInput(null)
       refetch()
     } catch (e: unknown) {
       setMessage({ ok: false, text: e instanceof Error ? e.message : 'Update failed' })
@@ -62,20 +59,9 @@ export function IdentityProviderSettings() {
     }
   }
 
-  const saveThreshold = () => {
-    const n = Number(thresholdValue)
-    if (!Number.isInteger(n) || n < 0 || n > 100) {
-      setMessage({ ok: false, text: 'Threshold must be a whole number between 0 and 100.' })
-      return
-    }
-    run('threshold', () => setFaceMatchThreshold(n), `Face match threshold set to ${n}.`)
-  }
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={28} className="animate-spin text-slate-400" />
-      </div>
+      <FormSkeleton fields={4} />
     )
   }
 
@@ -121,7 +107,7 @@ export function IdentityProviderSettings() {
       key: 'face',
       icon: <ScanFace size={16} className="text-slate-500" />,
       title: 'Face match provider',
-      desc: 'Provider used for selfie-to-ID facial matching.',
+      desc: 'Provider used for selfie-to-ID facial matching. The pass score is set under System Configuration.',
       control: (
         <ProviderToggle
           value={face}
@@ -129,31 +115,6 @@ export function IdentityProviderSettings() {
           disabled={saving === 'face'}
           onChange={p => run('face', () => setFaceProvider(p), `Face provider switched to ${p}.`)}
         />
-      ),
-    },
-    {
-      key: 'threshold',
-      icon: <SlidersHorizontal size={16} className="text-slate-500" />,
-      title: 'Face match score threshold',
-      desc: 'Minimum match score (0–100) required for a face verification to pass.',
-      control: (
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={thresholdValue}
-            onChange={e => setThresholdInput(e.target.value)}
-            className="w-20 px-2.5 py-1.5 text-sm font-semibold text-slate-800 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white"
-          />
-          <Button
-            size="sm"
-            onClick={saveThreshold}
-            disabled={saving === 'threshold' || thresholdInput === null || thresholdInput === threshold}
-          >
-            {saving === 'threshold' ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
-          </Button>
-        </div>
       ),
     },
   ]
@@ -187,7 +148,7 @@ export function IdentityProviderSettings() {
               </div>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              {saving === r.key && r.key !== 'threshold' && <Loader2 size={13} className="animate-spin text-slate-400" />}
+              {saving === r.key && <Loader2 size={13} className="animate-spin text-slate-400" />}
               {r.control}
             </div>
           </div>

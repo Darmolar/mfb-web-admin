@@ -40,8 +40,15 @@ export default async function handler(req, res) {
     return fail(400, 'Invalid admin API path.', 'INVALID_PATH')
   }
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return fail(405, 'Method not allowed.', 'METHOD_NOT_ALLOWED')
-  const auth = ['auth/login', 'auth/mfa/verify'].includes(path)
-  const logout = path === 'auth/logout'
+  // The job queue lives under /v1/admin, not /v1/bank-admin. Only its documented routes are reachable that way.
+  const ns = req.query?.ns ?? url.searchParams.get('ns')
+  const systemAdmin = ns === 'admin'
+  if (ns !== undefined && ns !== null && !systemAdmin) return fail(400, 'Invalid admin API path.', 'INVALID_PATH')
+  if (systemAdmin && !/^queue\/(stats|failed(\/[A-Za-z0-9_-]+(\/(retry|resolve))?)?)$/.test(path)) {
+    return fail(404, 'The requested endpoint does not exist.', 'NOT_FOUND')
+  }
+  const auth = !systemAdmin && ['auth/login', 'auth/mfa/verify'].includes(path)
+  const logout = !systemAdmin && path === 'auth/logout'
   if ((auth || logout) && req.method !== 'POST') return fail(405, 'Method not allowed.', 'METHOD_NOT_ALLOWED')
   const origin = req.headers.origin
   if (origin && new URL(origin).host !== req.headers.host) return fail(403, 'Request origin is not allowed.', 'FORBIDDEN')
@@ -58,8 +65,8 @@ export default async function handler(req, res) {
   if (!auth && (!token || !session || session.tokenHash !== digest(token))) {
     return fail(401, 'Please sign in again to establish a secure admin session.', 'SESSION_EXPIRED')
   }
-  const upstream = new URL(`${process.env.BANK_API_BASE_URL || 'http://163.245.209.118:8080/api/v1'}/bank-admin/${path}`)
-  for (const [name, value] of url.searchParams) if (name !== 'path') upstream.searchParams.append(name, value)
+  const upstream = new URL(`${process.env.BANK_API_BASE_URL || 'http://163.245.209.118:8080/api/v1'}/${systemAdmin ? 'admin' : 'bank-admin'}/${path}`)
+  for (const [name, value] of url.searchParams) if (name !== 'path' && name !== 'ns') upstream.searchParams.append(name, value)
   const headers = { 'X-Admin-Key': key, 'X-API-Key': process.env.VITE_PUBLIC_API_KEY || 'Cu05G2FB_YqsATuvv-v5V5T746OfJ_4jAhy7VCG3bBU' }
   if (!auth) {
     headers.Authorization = `Bearer ${token}`
@@ -68,7 +75,9 @@ export default async function handler(req, res) {
   let requestBody = req.body
   const contentType = req.headers['content-type'] || ''
   const multipart = /^multipart\/form-data(?:;|$)/i.test(contentType)
-  if (multipart && (path !== 'settings/bank-stamp' || req.method !== 'PUT' || !/boundary=/i.test(contentType))) {
+  const uploadRoute = (req.method === 'PUT' && path === 'settings/bank-stamp')
+    || (req.method === 'POST' && /^identity\/[A-Za-z0-9_-]+\/image$/.test(path) && !path.startsWith('identity/image-requests/'))
+  if (multipart && (!uploadRoute || !/boundary=/i.test(contentType))) {
     return fail(415, 'Unsupported upload request.', 'INVALID_UPLOAD')
   }
   const bodyLimit = multipart ? 2 * 1024 * 1024 + 64 * 1024 : 1024 * 1024

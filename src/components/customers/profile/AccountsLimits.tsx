@@ -6,6 +6,7 @@ import { addCustomerAccount, getCustomerLimits } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
 import type { CustomerAccount, CustomerDetail } from '../../../api'
 import moment from 'moment'
+import { LoadingRegion, Skeleton } from '../../ui/Skeleton'
 
 interface Props { customer: CustomerDetail }
 
@@ -77,11 +78,20 @@ export function AccountsLimits({ customer }: Props) {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Type</p>
-                  <p className="text-sm text-slate-600">{account.accountType ?? '—'}</p>
+                  <p className="text-sm text-slate-600">{account.accountType ?? '—'}{account.productName ? ` · ${account.productName}` : ''}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Account Name</p>
+                  <p className="text-sm text-slate-600">{account.accountName ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Ledger Balance</p>
+                  <p className="text-sm text-slate-600">{account.currentBalance != null ? fmt(account.currentBalance) : '—'}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Available Balance</p>
-                  <p className="text-sm text-slate-600">{fmt(account.availableBalance ?? account.currentBalance)}</p>
+                  <p className="text-sm text-slate-600">{account.availableBalance != null ? fmt(account.availableBalance) : '—'}</p>
+                  {account.balanceAsOf && <p className="text-[10px] text-slate-400 mt-0.5">as of {moment(account.balanceAsOf).format('DD MMM, h:mm a')}</p>}
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
@@ -104,6 +114,11 @@ export function AccountsLimits({ customer }: Props) {
             <p className="text-sm text-slate-600">
               {customer.transactionLimitOverride != null ? fmt(customer.transactionLimitOverride) : 'None'}
             </p>
+            {customer.transactionLimitOverride != null && customer.transactionLimitExpiry && (
+              <p className={`text-[10px] mt-0.5 ${moment(customer.transactionLimitExpiry).isBefore() ? 'text-red-500' : 'text-slate-400'}`}>
+                {moment(customer.transactionLimitExpiry).isBefore() ? 'Expired' : 'Expires'} {moment(customer.transactionLimitExpiry).format('DD MMM YYYY, h:mm a')}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Onboarded</p>
@@ -114,8 +129,14 @@ export function AccountsLimits({ customer }: Props) {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Transaction Limits</h4>
-        {loading ? (
-          <p className="text-xs text-slate-400">Loading limits…</p>
+        {loading && !limits ? (
+          <LoadingRegion className="space-y-3">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                <Skeleton className="h-3 w-40" /><Skeleton className="h-3 w-24" />
+              </div>
+            ))}
+          </LoadingRegion>
         ) : (
           <div className="space-y-3">
             {[

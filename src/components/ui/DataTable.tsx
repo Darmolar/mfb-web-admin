@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { SkeletonTableRows } from './Skeleton'
 
 export type ColumnDef<T> = {
   header: string
@@ -17,6 +18,9 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void
   pageSize?: number
   emptyMessage?: string
+  /** Show placeholder rows (header and search stay visible) while data loads. */
+  loading?: boolean
+  loadingRows?: number
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -28,6 +32,8 @@ export function DataTable<T extends Record<string, any>>({
   onRowClick,
   pageSize = 10,
   emptyMessage = 'No results found.',
+  loading = false,
+  loadingRows = 6,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: keyof T; direction: 'asc' | 'desc' } | null>(null)
@@ -124,8 +130,10 @@ export function DataTable<T extends Record<string, any>>({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {paginatedData.length === 0 ? (
+          <tbody aria-busy={loading || undefined}>
+            {loading ? (
+              <SkeletonTableRows columns={columns.length} rows={loadingRows} />
+            ) : paginatedData.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-6 py-12 text-center text-sm text-slate-400">
                   {emptyMessage}

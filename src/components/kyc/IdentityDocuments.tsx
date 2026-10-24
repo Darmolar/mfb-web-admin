@@ -17,7 +17,7 @@ export function IdentityDocuments() {
   const [reason, setReason] = useState('')
   const [reviewLoading, setReviewLoading] = useState(false)
 
-  const { data, refetch } = useApi<PaginatedData<IdentityDocument>>(async () => {
+  const { data, loading, refetch } = useApi<PaginatedData<IdentityDocument>>(async () => {
     const res = await getIdentityDocuments({ size: 100 })
     return res.data
   }, [])
@@ -94,6 +94,7 @@ export function IdentityDocuments() {
       <DataTable
         columns={columns}
         data={docs}
+        loading={loading && !data}
         searchPlaceholder="Search documents..."
         emptyMessage="No identity documents submitted."
       />

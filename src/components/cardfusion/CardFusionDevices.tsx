@@ -114,7 +114,8 @@ export function CardFusionDevices() {
         data={devices}
         searchPlaceholder="Search by hardware ID..."
         searchFields={['hardwareId', 'officeTokenDescription', 'status']}
-        emptyMessage={loading ? 'Loading devices...' : 'No CardFusion devices registered yet.'}
+        loading={loading && !data}
+        emptyMessage="No CardFusion devices registered yet."
       />
 
       <Modal open={tokenOpen} onClose={closeToken} title={token ? 'Registration Token Ready' : 'Generate Registration Token'} width="max-w-md">

@@ -121,10 +121,6 @@ export function SavingsGoals() {
     },
   ]
 
-  if (goals.loading) {
-    return <div className="px-6 py-12 text-center text-sm text-slate-400">Loading…</div>
-  }
-
   if (goals.error) {
     return <div className="px-6 py-12 text-center text-sm text-red-500">{goals.error}</div>
   }
@@ -133,6 +129,7 @@ export function SavingsGoals() {
     <DataTable<SavingsGoal>
       columns={columns}
       data={goals.data?.content ?? []}
+      loading={goals.loading && !goals.data}
       searchPlaceholder="Search goals…"
       emptyMessage="No savings goals found."
     />

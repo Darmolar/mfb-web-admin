@@ -131,12 +131,12 @@ export function CorporateUsers({ corporateId }: Props) {
           </div>
         </div>
 
-        {loading && <div className="px-6 py-10 text-center text-xs text-slate-400">Loading users…</div>}
         {error && <div className="px-6 py-6 text-center text-xs text-red-500">{error}</div>}
 
-        {!loading && !error && (
+        {!error && (
           <div className="px-6 py-4">
             <DataTable<CorporateUser>
+              loading={loading && !users}
               columns={columns}
               data={users ?? []}
               searchPlaceholder="Search users…"

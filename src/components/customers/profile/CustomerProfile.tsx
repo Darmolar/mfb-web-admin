@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ArrowLeft, Flag, Lock, Unlock, Loader2, BellRing } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Flag, Lock, Unlock, Loader2, BellRing, Pencil, CheckCircle2 } from 'lucide-react'
 import { Badge, statusBadge } from '../../ui/Badge'
 import { Button } from '../../ui/Button'
 import { TabBar } from '../../ui/TabBar'
@@ -10,6 +10,7 @@ import { SecurityDevices } from './SecurityDevices'
 import { KYCDocuments } from './KYCDocuments'
 import { AuditLogsTab } from './AuditLogsTab'
 import { SendPushModal } from '../../push/SendPushModal'
+import { EditCustomerModal } from './EditCustomerModal'
 import { useApi } from '../../../hooks/useApi'
 import { useAuth } from '../../../context/AuthContext'
 import { getCustomerDetail, updateCustomerStatus } from '../../../api'
@@ -26,6 +27,7 @@ const tabs = [
 
 import { raiseComplianceFlag } from '../../../api'
 import moment from 'moment'
+import { CardSkeleton, DetailSkeleton } from '../../ui/Skeleton'
 
 interface Props {
   customerId: string
@@ -37,12 +39,25 @@ export function CustomerProfile({ customerId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState('personal')
   const [statusLoading, setStatusLoading] = useState(false)
   const [pushOpen, setPushOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [savedNotice, setSavedNotice] = useState(false)
   const detail = useApi<CustomerDetail>(async () => {
     const res = await getCustomerDetail(customerId)
     return res.data
   }, [customerId])
 
   const c = detail.data
+
+  useEffect(() => {
+    if (!savedNotice) return
+    const t = setTimeout(() => setSavedNotice(false), 4000)
+    return () => clearTimeout(t)
+  }, [savedNotice])
+
+  const handleCustomerSaved = () => {
+    setSavedNotice(true)
+    detail.refetch()
+  }
 
   const handleToggleStatus = async () => {
     if (!c || !user) return
@@ -75,10 +90,14 @@ export function CustomerProfile({ customerId, onBack }: Props) {
     }
   }
 
-  if (detail.loading) {
+  if (detail.loading && !detail.data) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={32} className="animate-spin text-slate-400" />
+      <div className="space-y-5">
+        <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">
+          <ArrowLeft size={16} /> Back to Retail Banking
+        </button>
+        <DetailSkeleton fields={6} />
+        <CardSkeleton lines={5} />
       </div>
     )
   }
@@ -131,6 +150,7 @@ export function CustomerProfile({ customerId, onBack }: Props) {
                   : <><Unlock size={13} /> Unlock Account</>
               }
             </Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}><Pencil size={13} /> Edit Details</Button>
             <Button variant="secondary" size="sm" onClick={() => setPushOpen(true)}><BellRing size={13} /> Send Push</Button>
             <Button variant="secondary" size="sm" onClick={handleFlag}><Flag size={13} /> Flag</Button>
           </div>
@@ -142,6 +162,12 @@ export function CustomerProfile({ customerId, onBack }: Props) {
         </div>
       </div>
 
+      {savedNotice && (
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          <CheckCircle2 size={16} /> Customer details updated.
+        </div>
+      )}
+
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} variant="underline" />
 
       <SendPushModal
@@ -150,6 +176,13 @@ export function CustomerProfile({ customerId, onBack }: Props) {
         customerId={customerId}
         customerName={displayName}
         accountNumber={c.accountNumber}
+      />
+
+      <EditCustomerModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        customer={c}
+        onSaved={handleCustomerSaved}
       />
 
       {activeTab === 'personal' && <PersonalInfo customer={c} />}

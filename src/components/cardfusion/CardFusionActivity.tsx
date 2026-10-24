@@ -94,7 +94,8 @@ export function CardFusionActivity() {
         data={shown}
         searchPlaceholder="Search by staff, device or account..."
         searchFields={['staffName', 'staffCode', 'hardwareId', 'accountNumber', 'details']}
-        emptyMessage={loading ? 'Loading activity...' : 'No CardFusion activity recorded.'}
+        loading={loading && !data}
+        emptyMessage="No CardFusion activity recorded."
       />
     </div>
   )
