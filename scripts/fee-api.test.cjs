@@ -6,3 +6,11 @@ test('fee endpoints use the documented paths, query and GET headers',async()=>{c
 test('manual debit reports a CBA failure despite a top-level success response',async()=>{const s=apiFor({status:'success',data:{status:'FAILED',failureReason:'Insufficient funds'}});const result=await s.api.debitPendingFees();assert.equal(result.status,'FAILED');assert.equal(s.seen[0].init.method,'POST');assert.equal(s.seen[0].init.headers['Content-Type'],'application/json');});
 test('documented fee errors reject with their code and message',async()=>{const s=apiFor({status:'error',code:'NO_PENDING_FEES',message:'No pending fee charges to debit.'});await assert.rejects(s.api.debitPendingFees(),error=>error.errorCode==='NO_PENDING_FEES'&&/No pending/.test(error.message));});
 test('proxy credentials are only injected for local authenticated fee requests',()=>{const exports={};vm.runInNewContext(compile('vite.config.ts'),{exports,process:{cwd:()=>'.'},require:n=>n==='vite'?{defineConfig:v=>v,loadEnv:()=>({VITE_API_PROXY_TARGET:'https://backend.test',BANK_ADMIN_API_KEY:'test-key',BANK_ADMIN_USERNAME:'test-admin'})}:()=>null});const proxy=exports.default({mode:'development'}).server.proxy['/api'];let handler;proxy.configure({on:(_,cb)=>handler=cb});function run(path,address='127.0.0.1',auth='Bearer x'){const headers={};handler({removeHeader:k=>delete headers[k],setHeader:(k,v)=>headers[k]=v},{method:'POST',url:path,socket:{remoteAddress:address},headers:{authorization:auth}});return headers}assert.equal(run('/api/v1/bank-admin/fees/debit')['X-Admin-Key'],'test-key');assert.equal(run('/api/v1/bank-admin/settings/fees')['X-Admin-Username'],'test-admin');assert.deepEqual(run('/api/v1/bank-admin/fees/debit','10.0.0.4'),{});assert.deepEqual(run('/api/v1/unrelated'),{});});
+
+test('fee summary accepts the standard { success, data } envelope the live backend sends', async () => {
+  const live = { autoDebitEnabled: false, pendingTotal: 5374, creditAccount: '', debitAccount: '', breakdown: { SMS: { count: 56, total: 224 } } };
+  const s = apiFor({ success: true, data: live, timestamp: '2026-10-24T16:57:02Z' });
+  const summary = await s.api.getFeeSummary();
+  assert.equal(summary.pendingTotal, 5374);
+  await assert.rejects(apiFor({ success: true, data: undefined }).api.getFeeSummary());
+});

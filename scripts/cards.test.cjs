@@ -79,3 +79,11 @@ test('status updates send status, comment and the acting admin', async () => {
   assert.equal(calls[0].init.method, 'PATCH');
   assert.deepEqual(JSON.parse(calls[0].init.body), { status: 'APPROVED', comment: 'Approved for printing', adminId: 'admin-1' });
 });
+
+test('usage counts requests per product and open requests show their waiting time', () => {
+  const { requests } = c.readCardRequests([liveRequest, { ...liveRequest, id: 'r2', status: 'ACTIVE' }, { ...liveRequest, id: 'r3', status: 'REJECTED' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(c.productUsage(requests))), { MASTERCARD_CLASSIC: { total: 3, awaiting: 1, active: 1 } });
+  const now = Date.parse('2026-10-24T17:00:00');
+  assert.equal(c.waitingDays(requests[0], now), 2);
+  assert.equal(c.waitingDays(requests[1], now), null);
+});

@@ -12,6 +12,9 @@ const pick = (o: Obj, ...keys: string[]) => keys.map(k => str(o[k])).find(Boolea
 
 export const CARD_TYPES = ['VERVE', 'MASTERCARD', 'VISA'] as const
 
+/** Scheme colour (Tailwind class) for small chips, matching the card art. */
+export const SCHEME_DOT: Record<string, string> = { VERVE: 'bg-emerald-600', MASTERCARD: 'bg-slate-700', VISA: 'bg-indigo-700' }
+
 export type CardProductRecord = {
   id: string
   code: string
@@ -233,3 +236,25 @@ export const naira = (n: number | null) =>
   n === null ? '—' : `₦${n.toLocaleString('en-NG', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`
 
 export const maskBvn = (bvn: string) => (bvn.length > 6 ? `${bvn.slice(0, 3)}•••••${bvn.slice(-3)}` : bvn)
+
+export type ProductUsage = { total: number; awaiting: number; active: number }
+
+/** Request counts per product code, so the products page shows how much each card is used. */
+export function productUsage(requests: CardRequestRecord[]): Record<string, ProductUsage> {
+  const out: Record<string, ProductUsage> = {}
+  for (const r of requests) {
+    const key = r.productCode || r.productName
+    const u = (out[key] ??= { total: 0, awaiting: 0, active: 0 })
+    u.total++
+    if (cardRequestActions(r.status).canDecide) u.awaiting++
+    if (r.status === 'ACTIVE') u.active++
+  }
+  return out
+}
+
+/** Whole days a request has been waiting, or null once it is no longer open. */
+export function waitingDays(r: CardRequestRecord, now = Date.now()): number | null {
+  if (!cardRequestActions(r.status).canDecide || !r.createdAt) return null
+  const t = Date.parse(r.createdAt)
+  return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 86_400_000)) : null
+}

@@ -1,5 +1,6 @@
 import { allPages } from '../../api/pagination'
 import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
@@ -13,7 +14,10 @@ const statusFilters = ['', 'ACTIVE', 'LOCKED', 'SUSPENDED', 'PENDING']
 
 export function CustomersPage() {
   const [statusFilter, setStatusFilter] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // The open profile lives in the URL (/customers/{id}) so it can be linked to and the back button closes it.
+  const navigate = useNavigate()
+  const selectedId = useParams()['*']?.split('/')[0] || null
+  const setSelectedId = (id: string | null) => navigate(id ? `/customers/${id}` : '/customers')
 
   const customers = useApi<PaginatedData<CustomerListItem>>(async () => {
     return allPages(page => getCustomers({ status: statusFilter || undefined, page, size: 100 }))

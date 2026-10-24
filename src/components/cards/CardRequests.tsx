@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronRight, CreditCard, Eye, Loader2, RefreshCw, Search, Truck, UserRound, Wallet, X as XIcon } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Clock, Eye, Loader2, RefreshCw, Search, Truck, UserRound, Wallet, X as XIcon } from 'lucide-react'
 import moment from 'moment'
 import { useApi } from '../../hooks/useApi'
+import { allPages } from '../../api/pagination'
+import { StatCardsSkeleton } from '../ui/Skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { dispatchCardRequest, getCardRequests, updateCardRequestStatus } from '../../api'
 import {
-  CARD_STATUS, cardRequestActions, maskBvn, naira, readCardRequests, type CardRequestRecord,
+  CARD_STATUS, cardRequestActions, maskBvn, naira, readCardRequests, SCHEME_DOT, waitingDays, type CardRequestRecord,
 } from '../../api/cards'
+import { CardArt } from './CardArt'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
@@ -31,16 +34,30 @@ export function CardRequests() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const { data, loading, error, refetch } = useApi(async () => readCardRequests((await getCardRequests({ size: '100' })).data), [])
+  // Every page, so the summary and filters cover all requests, not just the first 100.
+  const { data, loading, error, refetch } = useApi(async () => readCardRequests(await allPages(page => getCardRequests({ page, size: 100 }))), [])
   // Placeholders only on the first load; a refresh keeps the current list on screen.
   const initialLoad = loading && !data
   const all = useMemo(() => data?.requests ?? [], [data])
 
   const counts = useMemo(() => all.reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.status]: (acc[r.status] ?? 0) + 1 }), {}), [all])
   // Statuses that need the bank's action first, then the rest in a sensible order.
-  const order = ['REQUESTED', 'PENDING', 'APPROVED', 'ISSUED', 'DELIVERED', 'ACTIVE', 'FROZEN', 'REJECTED', 'TERMINATED']
-  const statuses = Object.keys(counts).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
-  const rows = filter === 'ALL' ? all : all.filter(r => r.status === filter)
+  const order = ['APPROVED', 'ISSUED', 'DELIVERED', 'ACTIVE', 'FROZEN', 'REJECTED', 'TERMINATED']
+  // Requested and pending both mean "awaiting review", so they share one filter.
+  const statuses = Object.keys(counts).filter(s => !cardRequestActions(s).canDecide)
+    .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
+  const reviewCount = all.filter(r => cardRequestActions(r.status).canDecide).length
+  const needsAction = (r: CardRequestRecord) => { const a = cardRequestActions(r.status); return a.canDecide || a.canDispatch }
+  // Work the bank must do comes first, oldest waiting at the top; everything else newest first.
+  const rows = useMemo(() => {
+    const picked = filter === 'ALL' ? all : filter === 'REVIEW' ? all.filter(r => cardRequestActions(r.status).canDecide) : all.filter(r => r.status === filter)
+    return [...picked].sort((a, b) => {
+      const na = needsAction(a), nb = needsAction(b)
+      if (na !== nb) return na ? -1 : 1
+      return na ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt)
+    })
+  }, [all, filter])
+  const filterLabel = (f: string) => (f === 'ALL' ? 'All' : f === 'REVIEW' ? 'Awaiting review' : statusInfo(f).label)
   const term = mobileSearch.trim().toLowerCase()
   const mobileRows = term
     ? rows.filter(r => [r.customerName, r.linkedAccount, r.reference, r.productName, r.customerPhone].join(' ').toLowerCase().includes(term))
@@ -75,9 +92,12 @@ export function CardRequests() {
       header: 'Customer',
       accessorKey: 'customerName',
       cell: r => (
-        <div className="min-w-[160px]">
-          <p className="font-semibold text-slate-700">{r.customerName}</p>
-          <p className="text-[11px] text-slate-400 font-mono">{r.linkedAccount || r.customerUsername || '—'}</p>
+        <div className="flex items-center gap-3 min-w-[190px]">
+          <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">{initials(r.customerName)}</span>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-700 truncate">{r.customerName}</p>
+            <p className="text-[11px] text-slate-400 font-mono">{r.linkedAccount || r.customerUsername || '—'}</p>
+          </div>
         </div>
       ),
     },
@@ -85,9 +105,12 @@ export function CardRequests() {
       header: 'Card',
       accessorKey: 'productName',
       cell: r => (
-        <div className="min-w-[150px]">
-          <p className="text-xs font-semibold text-slate-700">{r.productName}</p>
-          <p className="text-[11px] text-slate-400">{r.maskedPan || r.cardType || ''}</p>
+        <div className="min-w-[160px]">
+          <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${SCHEME_DOT[r.cardType] ?? 'bg-slate-400'}`} aria-hidden="true" />
+            {r.productName}
+          </p>
+          <p className="text-[11px] text-slate-400 font-mono pl-3.5">{r.maskedPan ? `•••• ${r.maskedPan.replace(/\D/g, '').slice(-4)}` : 'Not issued yet'}</p>
         </div>
       ),
     },
@@ -97,7 +120,7 @@ export function CardRequests() {
       cell: r => (
         <div className="text-xs whitespace-nowrap">
           <p className="text-slate-700">{naira(r.issuanceFee)}</p>
-          <p className={r.feePaid ? 'text-emerald-600' : 'text-amber-600'}>{r.feePaid ? 'Paid' : 'Not paid'}</p>
+          <FeeChip paid={r.feePaid} />
         </div>
       ),
     },
@@ -109,7 +132,15 @@ export function CardRequests() {
     {
       header: 'Status',
       accessorKey: 'status',
-      cell: r => <Badge label={statusInfo(r.status).label} variant={statusInfo(r.status).variant} />,
+      cell: r => {
+        const wait = waitingDays(r)
+        return (
+          <div className="space-y-1">
+            <Badge label={statusInfo(r.status).label} variant={statusInfo(r.status).variant} />
+            {wait !== null && <Waiting days={wait} />}
+          </div>
+        )
+      },
     },
     {
       header: 'Requested',
@@ -122,7 +153,7 @@ export function CardRequests() {
       cell: r => {
         const { canDecide, canDispatch } = cardRequestActions(r.status)
         return (
-          <Button size="sm" variant={canDecide || canDispatch ? 'primary' : 'secondary'} onClick={() => open(r)}>
+          <Button size="sm" variant={canDecide || canDispatch ? 'primary' : 'secondary'} onClick={e => { e.stopPropagation(); open(r) }}>
             <Eye size={13} /> {canDecide ? 'Review' : canDispatch ? 'Dispatch' : 'View'}
           </Button>
         )
@@ -154,6 +185,19 @@ export function CardRequests() {
         </div>
       )}
 
+      {initialLoad ? <StatCardsSkeleton count={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3" /> : !error && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <SummaryTile label="Awaiting review" n={reviewCount} selected={filter === 'REVIEW'} onClick={() => setFilter(filter === 'REVIEW' ? 'ALL' : 'REVIEW')}
+            sub={`${all.filter(r => cardRequestActions(r.status).canDecide && !r.feePaid).length} with fee unpaid`} tone="amber" />
+          <SummaryTile label="Approved, to dispatch" n={counts.APPROVED ?? 0} sub="Record courier details" tone="blue"
+            selected={filter === 'APPROVED'} onClick={() => setFilter(filter === 'APPROVED' ? 'ALL' : 'APPROVED')} />
+          <SummaryTile label="Active cards" n={counts.ACTIVE ?? 0} sub={`${(counts.ISSUED ?? 0) + (counts.DELIVERED ?? 0)} on the way`}
+            selected={filter === 'ACTIVE'} onClick={() => setFilter(filter === 'ACTIVE' ? 'ALL' : 'ACTIVE')} />
+          <SummaryTile label="Frozen" n={counts.FROZEN ?? 0} sub="Blocked temporarily"
+            selected={filter === 'FROZEN'} onClick={() => setFilter(filter === 'FROZEN' ? 'ALL' : 'FROZEN')} />
+        </div>
+      )}
+
       {initialLoad && (
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit" aria-hidden="true">
           {['w-14', 'w-24', 'w-16', 'w-16'].map((w, i) => <Skeleton key={i} className={`h-7 rounded-lg ${w}`} />)}
@@ -161,14 +205,14 @@ export function CardRequests() {
       )}
       {!error && all.length > 0 && (
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit max-w-full overflow-x-auto">
-          {['ALL', ...statuses].map(s => (
+          {['ALL', ...(reviewCount ? ['REVIEW'] : []), ...statuses].map(s => (
             <button
               key={s}
               onClick={() => setFilter(s)}
               className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${filter === s ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              {s === 'ALL' ? 'All' : statusInfo(s).label}
-              <span className="ml-1.5 text-[10px] text-slate-400">{s === 'ALL' ? all.length : counts[s]}</span>
+              {filterLabel(s)}
+              <span className="ml-1.5 text-[10px] text-slate-400">{s === 'ALL' ? all.length : s === 'REVIEW' ? reviewCount : counts[s]}</span>
             </button>
           ))}
         </div>
@@ -209,7 +253,8 @@ export function CardRequests() {
           {mobileRows.map(r => {
             const { canDecide, canDispatch } = cardRequestActions(r.status)
             return (
-              <button key={r.id} onClick={() => open(r)} className="w-full text-left bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 cursor-pointer active:bg-slate-50">
+              <button key={r.id} onClick={() => open(r)} className={`w-full text-left bg-white rounded-2xl border shadow-sm p-4 flex items-center gap-3 cursor-pointer active:bg-slate-50 ${canDecide ? 'border-amber-200' : canDispatch ? 'border-blue-200' : 'border-slate-100'}`}>
+                <span className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">{initials(r.customerName)}</span>
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-slate-800 truncate">{r.customerName}</p>
@@ -219,7 +264,8 @@ export function CardRequests() {
                   <p className="text-[11px] text-slate-400">
                     {naira(r.issuanceFee)} <span className={r.feePaid ? 'text-emerald-600' : 'text-amber-600'}>{r.feePaid ? 'paid' : 'not paid'}</span> · {when(r.createdAt, 'DD MMM')}
                   </p>
-                  {(canDecide || canDispatch) && <p className="text-[11px] font-bold text-slate-700">{canDecide ? 'Needs review' : 'Ready to dispatch'}</p>}
+                  {canDecide && waitingDays(r) !== null && <Waiting days={waitingDays(r)!} />}
+                  {canDispatch && <p className="text-[11px] font-bold text-blue-700">Ready to dispatch</p>}
                 </div>
                 <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </button>
@@ -233,9 +279,10 @@ export function CardRequests() {
           columns={columns}
           data={rows}
           loading={initialLoad}
+          onRowClick={open}
           searchPlaceholder="Search name, account, reference…"
           searchFields={['customerName', 'linkedAccount', 'reference', 'productName', 'customerUsername', 'customerPhone']}
-          emptyMessage={filter === 'ALL' ? 'No card requests yet.' : `No ${statusInfo(filter).label.toLowerCase()} requests.`}
+          emptyMessage={filter === 'ALL' ? 'No card requests yet.' : `No ${filterLabel(filter).toLowerCase()} requests.`}
         />
         </div>
       )}
@@ -374,7 +421,15 @@ export function CardRequests() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-[minmax(0,15rem)_1fr] gap-4">
-                <CardPreview request={view} />
+                <CardArt
+                  name={view.productName}
+                  scheme={view.cardType}
+                  last4={view.maskedPan ? view.maskedPan.replace(/\D/g, '').slice(-4) : ''}
+                  account={view.linkedAccount}
+                  expiry={view.expiry}
+                  tag={view.maskedPan ? undefined : 'Not yet issued'}
+                  className="max-w-[17rem] mx-auto md:mx-0"
+                />
                 <InfoPanel icon={<UserRound size={14} />} title="Customer" rows={[
                   ['Username', view.customerUsername || '—'],
                   ['Phone', view.customerPhone || '—'],
@@ -445,39 +500,6 @@ function StatusSteps({ status }: { status: string }) {
   )
 }
 
-const SCHEME_STYLE: Record<string, string> = {
-  VERVE: 'from-emerald-700 to-emerald-900',
-  MASTERCARD: 'from-slate-700 to-slate-900',
-  VISA: 'from-indigo-700 to-indigo-950',
-}
-
-function CardPreview({ request }: { request: CardRequestRecord }) {
-  const last4 = request.maskedPan ? request.maskedPan.replace(/\D/g, '').slice(-4) : ''
-  return (
-    <div className={`relative rounded-2xl p-4 text-white bg-gradient-to-br ${SCHEME_STYLE[request.cardType] ?? 'from-slate-600 to-slate-800'} aspect-[1.586] w-full max-w-[17rem] mx-auto md:mx-0 shadow-md flex flex-col justify-between overflow-hidden`}>
-      <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10" />
-      <div className="flex items-start justify-between relative">
-        <div className="pr-2">
-          <p className="text-[11px] font-semibold text-white/80 leading-tight">{request.productName}</p>
-          {!request.maskedPan && <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-widest bg-white/15 rounded px-1.5 py-0.5">Not yet issued</span>}
-        </div>
-        <CreditCard size={18} className="text-white/70 shrink-0" />
-      </div>
-      <p className="font-mono text-base tracking-widest relative">•••• •••• •••• {last4 || '••••'}</p>
-      <div className="flex items-end justify-between relative text-[10px]">
-        <div>
-          <p className="text-white/60 uppercase tracking-wider">Linked account</p>
-          <p className="font-mono text-xs">{request.linkedAccount || '—'}</p>
-        </div>
-        <div className="text-right">
-          {request.expiry && <p className="font-mono text-xs">{request.expiry}</p>}
-          <p className="font-black tracking-wider text-xs">{request.cardType || 'CARD'}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function InfoPanel({ icon, title, rows }: { icon: React.ReactNode; title: string; rows: [string, React.ReactNode][] }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
@@ -532,5 +554,35 @@ function Choice({ active, tone, icon, title, text, onClick }: {
         <span className="block text-[11px] opacity-70 truncate">{text}</span>
       </span>
     </button>
+  )
+}
+
+function SummaryTile({ label, n, sub, tone, selected, onClick }: {
+  label: string; n: number; sub: string; tone?: 'amber' | 'blue'; selected: boolean; onClick: () => void
+}) {
+  const t = n > 0 && tone === 'amber' ? 'bg-amber-50 border-amber-100 [&_.v]:text-amber-700'
+    : n > 0 && tone === 'blue' ? 'bg-blue-50 border-blue-100 [&_.v]:text-blue-700' : 'bg-white border-slate-100 [&_.v]:text-slate-800'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      title={selected ? 'Show all requests' : `Show only: ${label.toLowerCase()}`}
+      className={`text-left rounded-2xl border shadow-sm p-4 cursor-pointer transition hover:shadow-md ${t} ${selected ? 'ring-2 ring-slate-700 ring-offset-1' : ''}`}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</p>
+      <p className="v text-2xl font-black mt-1">{n}</p>
+      <p className="text-xs text-slate-500">{sub}</p>
+    </button>
+  )
+}
+
+/** How long an open request has waited; amber after two days, red after five. */
+function Waiting({ days }: { days: number }) {
+  const tone = days >= 5 ? 'text-red-600' : days >= 2 ? 'text-amber-700' : 'text-slate-400'
+  return (
+    <p className={`flex items-center gap-1 text-[11px] font-semibold whitespace-nowrap ${tone}`}>
+      <Clock size={11} /> {days === 0 ? 'Today' : `Waiting ${days} day${days === 1 ? '' : 's'}`}
+    </p>
   )
 }
