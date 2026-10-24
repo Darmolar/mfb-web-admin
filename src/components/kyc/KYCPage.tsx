@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { TabBar } from '../ui/TabBar'
 import { KYCConfiguration } from './KYCConfiguration'
 import { KYCSubmissionReview } from './KYCSubmissionReview'
@@ -15,7 +15,10 @@ const tabs = [
 ]
 
 export function KYCPage() {
-  const [active, setActive] = useState('submissions')
+  // The tab lives in the URL so links (e.g. from the notifications bell) open the right tab.
+  const [params, setParams] = useSearchParams()
+  const active = tabs.some(t => t.id === params.get('tab')) ? params.get('tab')! : 'submissions'
+  const setActive = (id: string) => setParams(id === 'submissions' ? {} : { tab: id }, { replace: true })
   return (
     <div className="space-y-6">
       <TabBar tabs={tabs} active={active} onChange={setActive} />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Check, Copy } from 'lucide-react'
+import { AlertTriangle, Check, Copy, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/Button'
 
 export function Notice({ tone, children }: { tone: 'error' | 'success'; children: React.ReactNode }) {
@@ -48,4 +48,43 @@ export function OneTimeSecret({ label, value, warning, onDone }: { label: string
       <Button fullWidth onClick={onDone}>I have saved it</Button>
     </div>
   )
+}
+
+/** Page section heading with its actions; actions wrap under the text on phones. */
+export function SectionHeader({ title, text, children }: { title: string; text: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div>
+        <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+        <p className="text-xs text-slate-500 mt-0.5">{text}</p>
+      </div>
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    </div>
+  )
+}
+
+export function RefreshButton({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <Button variant="secondary" size="sm" onClick={onClick} disabled={loading} aria-label="Refresh">
+      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> <span className="hidden sm:inline">Refresh</span>
+    </Button>
+  )
+}
+
+export function Tile({ label, value, sub, tone }: { label: string; value: number | string; sub: string; tone?: 'amber' | 'red' }) {
+  const box = tone === 'amber' ? 'bg-amber-50 border-amber-100' : tone === 'red' ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100'
+  const ink = tone === 'amber' ? 'text-amber-700' : tone === 'red' ? 'text-red-700' : 'text-slate-800'
+  return (
+    <div className={`rounded-2xl border shadow-sm p-3 sm:p-4 min-w-0 ${box}`}>
+      <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest text-slate-500 leading-tight">{label}</p>
+      <p className={`text-xl sm:text-2xl font-black mt-1 ${ink}`}>{value}</p>
+      <p className="hidden sm:block text-xs text-slate-500 truncate">{sub}</p>
+    </div>
+  )
+}
+
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'
+
+export function Avatar({ name }: { name: string }) {
+  return <span className="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">{initials(name)}</span>
 }

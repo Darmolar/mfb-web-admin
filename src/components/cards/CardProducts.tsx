@@ -1,21 +1,24 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, ListChecks, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw, Trash2 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ArrowRight, ListChecks, Loader2, MapPin, Pencil, Plus, Power, PowerOff, RefreshCw, Store } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
+import { allPages } from '../../api/pagination'
 import {
-  activateCardProduct, createCardProduct, deactivateCardProduct, getCardProductRequirements, getCardProducts,
+  activateCardProduct, createCardProduct, deactivateCardProduct, getCardProductRequirements, getCardProducts, getCardRequests,
   updateCardProduct, updateCardProductRequirements,
 } from '../../api'
-import type { CardProductRequirement } from '../../api/types'
 import {
-  CARD_TYPES, EMPTY_PRODUCT_FORM, REQUIREMENT_FIELD_TYPES, cleanRequirements, naira, productPayload, productToForm,
-  readCardProducts, readRequirements, type CardProductForm, type CardProductRecord,
+  CARD_TYPES, EMPTY_PRODUCT_FORM, naira, productPayload, productToForm, productUsage,
+  SCHEME_DOT, readCardProducts, readCardRequests, type CardProductForm, type CardProductRecord,
 } from '../../api/cards'
-import { DataTable, type ColumnDef } from '../ui/DataTable'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
-import { LoadingRegion, Skeleton } from '../ui/Skeleton'
+import { RequirementsEditor } from '../ui/RequirementsEditor'
+import { LoadingRegion, StatCardsSkeleton, TableSkeleton } from '../ui/Skeleton'
+import { DataTable, type ColumnDef } from '../ui/DataTable'
+import { CardArt } from './CardArt'
 
 const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white'
 const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback)
@@ -26,6 +29,13 @@ export function CardProducts() {
 
   const { data, loading, error, refetch } = useApi(async () => readCardProducts((await getCardProducts({ size: '100' })).data), [])
   const products = data ?? []
+  const initialLoad = loading && !data
+  // Request counts per product; optional, so a failure here never hides the products.
+  const { data: usageData, refetch: refetchUsage } = useApi(
+    async () => productUsage(readCardRequests(await allPages(page => getCardRequests({ page, size: 100 }))).requests), [])
+  const [, setParams] = useSearchParams()
+  const goToRequests = () => setParams({ tab: 'requests' }, { replace: true })
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
   // Create / edit
   const [editing, setEditing] = useState<CardProductRecord | 'new' | null>(null)
@@ -33,16 +43,13 @@ export function CardProducts() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  // Requirements (editor loads and saves itself)
+  const [reqProduct, setReqProduct] = useState<CardProductRecord | null>(null)
+
   // Activate / deactivate
   const [toggling, setToggling] = useState<CardProductRecord | null>(null)
   const [toggleBusy, setToggleBusy] = useState(false)
 
-  // Requirements
-  const [reqProduct, setReqProduct] = useState<CardProductRecord | null>(null)
-  const [reqRows, setReqRows] = useState<CardProductRequirement[]>([])
-  const [reqLoading, setReqLoading] = useState(false)
-  const [reqSaving, setReqSaving] = useState(false)
-  const [reqError, setReqError] = useState<string | null>(null)
 
   function openForm(p: CardProductRecord | 'new') {
     setEditing(p)
@@ -87,84 +94,77 @@ export function CardProducts() {
     }
   }
 
-  async function openRequirements(p: CardProductRecord) {
-    setReqProduct(p)
-    setReqRows([])
-    setReqError(null)
-    setReqLoading(true)
-    try {
-      setReqRows(readRequirements((await getCardProductRequirements(p.id)).data))
-    } catch (err) {
-      setReqError(`Could not load the current requirements: ${errText(err, 'unknown error')}. Saving would replace them.`)
-    } finally {
-      setReqLoading(false)
-    }
-  }
 
-  const updateRow = (i: number, patch: Partial<CardProductRequirement>) =>
-    setReqRows(rows => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
-  const moveRow = (i: number, by: number) =>
-    setReqRows(rows => {
-      const next = [...rows]
-      const [row] = next.splice(i, 1)
-      next.splice(i + by, 0, row)
-      return next
-    })
+  const usage = usageData ?? null
+  const shown = products.filter(p => status === 'all' || (status === 'active') === p.active)
+  const activeCount = products.filter(p => p.active).length
+  const totals = usage ? Object.values(usage).reduce((a, u) => ({ awaiting: a.awaiting + u.awaiting, active: a.active + u.active }), { awaiting: 0, active: 0 }) : null
+  const fees = products.map(p => p.issuanceFee).filter((n): n is number => n !== null)
 
-  async function saveRequirements() {
-    if (!reqProduct || !user) return
-    const cleaned = cleanRequirements(reqRows)
-    if ('error' in cleaned) { setReqError(cleaned.error); return }
-    setReqSaving(true)
-    setReqError(null)
-    try {
-      await updateCardProductRequirements(reqProduct.id, cleaned.requirements, user.adminId)
-      setNotice({ ok: true, text: `Requirements for ${reqProduct.name} saved (${cleaned.requirements.length} field${cleaned.requirements.length === 1 ? '' : 's'}).` })
-      setReqProduct(null)
-    } catch (err) {
-      setReqError(errText(err, 'The requirements could not be saved.'))
-    } finally {
-      setReqSaving(false)
-    }
-  }
-
+  const usageOf = (p: CardProductRecord) => (usage ? usage[p.code] ?? usage[p.name] ?? { total: 0, awaiting: 0, active: 0 } : null)
   const columns: ColumnDef<CardProductRecord>[] = [
     {
       header: 'Product',
       accessorKey: 'name',
       cell: p => (
-        <div className="min-w-[180px]">
-          <p className="font-semibold text-slate-700">{p.name}</p>
-          <p className="text-[11px] text-slate-400 font-mono">{p.code}</p>
+        <div className="flex items-center gap-3 min-w-[200px] max-w-[260px]">
+          <span className={`w-10 h-7 rounded-md shrink-0 ${SCHEME_DOT[p.cardType] ?? 'bg-slate-500'} ${p.active ? '' : 'opacity-40'} flex items-end justify-end p-1`} aria-hidden="true">
+            <span className="w-2.5 h-1.5 rounded-sm bg-amber-300/90" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-700 truncate">{p.name}</p>
+            <p className="text-[11px] text-slate-400 font-mono truncate">{p.code} · {p.cardType || '—'}</p>
+          </div>
         </div>
       ),
     },
-    { header: 'Scheme', accessorKey: 'cardType', cell: p => <Badge label={p.cardType || '—'} variant="slate" /> },
     {
       header: 'Fees',
       accessorKey: 'issuanceFee',
       cell: p => (
         <div className="text-xs whitespace-nowrap">
-          <p className="text-slate-700"><span className="text-slate-400">Issue</span> {naira(p.issuanceFee)}</p>
-          <p className="text-slate-700"><span className="text-slate-400">Replace</span> {naira(p.replacementFee)}</p>
+          <p className="text-slate-700 font-semibold">{naira(p.issuanceFee)} <span className="font-normal text-slate-400">to issue</span></p>
+          <p className="text-slate-500">{naira(p.replacementFee)} <span className="text-slate-400">to replace</span></p>
         </div>
       ),
     },
     {
-      header: 'Default daily limits',
+      header: 'Daily limits',
       sortable: false,
       cell: p => (
-        <div className="text-xs whitespace-nowrap text-slate-700">
-          <p><span className="text-slate-400">ATM</span> {naira(p.defaultAtmLimit)}</p>
-          <p><span className="text-slate-400">POS</span> {naira(p.defaultPosLimit)}</p>
-          <p><span className="text-slate-400">Web</span> {naira(p.defaultWebLimit)}</p>
-        </div>
+        <dl className="grid grid-cols-[auto_auto] gap-x-2 text-xs whitespace-nowrap w-fit">
+          {([['ATM', p.defaultAtmLimit], ['POS', p.defaultPosLimit], ['Web', p.defaultWebLimit]] as const).map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-slate-400">{k}</dt>
+              <dd className="font-semibold text-slate-700 text-right">{naira(v)}</dd>
+            </div>
+          ))}
+        </dl>
       ),
     },
     {
       header: 'Delivery',
       accessorKey: 'requiresDeliveryAddress',
-      cell: p => <span className="text-xs text-slate-500">{p.requiresDeliveryAddress ? 'Address required' : 'Branch pickup'}</span>,
+      cell: p => (
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 whitespace-nowrap">
+          {p.requiresDeliveryAddress ? <MapPin size={13} /> : <Store size={13} />}
+          {p.requiresDeliveryAddress ? 'Delivered' : 'Branch pickup'}
+        </span>
+      ),
+    },
+    {
+      header: 'Requests',
+      sortable: false,
+      cell: p => {
+        const u = usageOf(p)
+        if (!u) return <span className="text-xs text-slate-300">—</span>
+        return (
+          <button onClick={goToRequests} className="text-left text-xs whitespace-nowrap cursor-pointer hover:underline" title="Open card requests">
+            <p className="text-slate-700"><span className="font-semibold">{u.active}</span> active</p>
+            <p className={u.awaiting ? 'text-amber-700 font-semibold' : 'text-slate-400'}>{u.awaiting} awaiting review</p>
+          </button>
+        )
+      },
     },
     {
       header: 'Status',
@@ -176,16 +176,17 @@ export function CardProducts() {
       sortable: false,
       cell: p => (
         <div className="flex gap-1">
-          <button onClick={() => openForm(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer" title="Edit product">
+          <button onClick={() => openForm(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer" title="Edit product" aria-label="Edit product">
             <Pencil size={14} />
           </button>
-          <button onClick={() => openRequirements(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer" title="Application requirements">
+          <button onClick={() => setReqProduct(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer" title="Application requirements" aria-label="Application requirements">
             <ListChecks size={14} />
           </button>
           <button
             onClick={() => setToggling(p)}
-            className={`p-1.5 rounded-lg cursor-pointer ${p.active ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+            className={`p-1.5 rounded-lg cursor-pointer text-slate-400 ${p.active ? 'hover:text-amber-600 hover:bg-amber-50' : 'hover:text-emerald-600 hover:bg-emerald-50'}`}
             title={p.active ? 'Deactivate' : 'Activate'}
+            aria-label={p.active ? 'Deactivate' : 'Activate'}
           >
             {p.active ? <PowerOff size={14} /> : <Power size={14} />}
           </button>
@@ -195,14 +196,14 @@ export function CardProducts() {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap justify-between items-start gap-3">
         <div>
           <h3 className="text-sm font-bold text-slate-700">Card products</h3>
           <p className="text-xs text-slate-500 mt-0.5">The cards customers can request in the app. Only active products are offered.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer" title="Refresh"><RefreshCw size={13} /></button>
+          <button onClick={() => { refetch(); refetchUsage() }} className="text-slate-300 hover:text-slate-500 cursor-pointer" title="Refresh" aria-label="Refresh"><RefreshCw size={13} /></button>
           <Button size="sm" onClick={() => openForm('new')}><Plus size={14} /> New product</Button>
         </div>
       </div>
@@ -220,21 +221,57 @@ export function CardProducts() {
           <Button size="sm" variant="secondary" onClick={refetch}>Retry</Button>
         </div>
       )}
-      {!error && (
-        <DataTable<CardProductRecord>
-          columns={columns}
-          data={products}
-          loading={loading && !data}
-          loadingRows={3}
-          searchPlaceholder="Search card products…"
-          searchFields={['name', 'code', 'cardType', 'description']}
-          emptyMessage="No card products yet. Create one to let customers request cards."
-        />
+
+      {initialLoad && (
+        <LoadingRegion label="Loading card products…" className="space-y-5">
+          <StatCardsSkeleton count={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3" />
+          <TableSkeleton columns={7} rows={3} search />
+        </LoadingRegion>
+      )}
+
+      {!error && data && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Tile label="Live products" value={`${activeCount} of ${products.length}`} sub={activeCount === products.length ? 'All offered in the app' : `${products.length - activeCount} switched off`} />
+            <Tile label="Awaiting review" value={totals ? String(totals.awaiting) : '—'} sub="Requests across all products" tone={totals && totals.awaiting > 0 ? 'amber' : undefined}
+              action={totals && totals.awaiting > 0 ? { label: 'Review', onClick: () => goToRequests() } : undefined} />
+            <Tile label="Active cards" value={totals ? String(totals.active) : '—'} sub="Issued and in use" />
+            <Tile label="Issue fees" value={fees.length ? `${naira(Math.min(...fees))}${Math.max(...fees) !== Math.min(...fees) ? ` – ${naira(Math.max(...fees))}` : ''}` : '—'} sub="Charged once per new card" />
+          </div>
+
+          <div className="flex">
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+              {(['all', 'active', 'inactive'] as const).map(s => (
+                <button key={s} onClick={() => setStatus(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer capitalize ${status === s ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                  {s}
+                  <span className="ml-1.5 text-[10px] text-slate-400">{s === 'all' ? products.length : s === 'active' ? activeCount : products.length - activeCount}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <DataTable<CardProductRecord>
+            columns={columns}
+            data={shown}
+            searchPlaceholder="Search name, code or scheme…"
+            searchFields={['name', 'code', 'cardType', 'description']}
+            emptyMessage={products.length ? 'No products match this filter.' : 'No card products yet. Create one to let customers request cards.'}
+          />
+        </>
       )}
 
       {/* Create / edit */}
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing === 'new' ? 'New card product' : `Edit ${editing?.name ?? ''}`} width="max-w-2xl">
         <form onSubmit={saveProduct} className="space-y-5">
+          <div className="flex items-center gap-4 rounded-2xl bg-slate-50 border border-slate-100 p-3">
+            <CardArt name={form.name} scheme={form.cardType} tag={form.active ? undefined : 'Inactive'} muted={!form.active} className="!w-40 shrink-0 !p-2.5 !rounded-xl [&_p]:!text-[9px]" />
+            <div className="text-xs text-slate-500 space-y-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Preview</p>
+              <p className="text-sm font-semibold text-slate-700 truncate">{form.name || 'Product name'}</p>
+              <p>Issue {form.issuanceFee ? naira(Number(form.issuanceFee)) : '—'} · {form.requiresDeliveryAddress ? 'Delivered' : 'Branch pickup'}</p>
+            </div>
+          </div>
           <Section title="Product">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Product name" required>
@@ -320,79 +357,15 @@ export function CardProducts() {
       </Modal>
 
       {/* Requirements */}
-      <Modal open={!!reqProduct} onClose={() => setReqProduct(null)} title={`Application requirements · ${reqProduct?.name ?? ''}`} width="max-w-3xl">
-        <div className="space-y-4">
-          <p className="text-xs text-slate-500">Extra details customers must provide when requesting this card, in the order shown.</p>
-          {reqLoading ? (
-            // Shaped like a requirement field card.
-            <LoadingRegion label="Loading requirements…" className="space-y-3">
-              {[0, 1].map(i => (
-                <div key={i} className="border border-slate-100 rounded-xl p-3 sm:p-4 space-y-3 bg-slate-50/40">
-                  <Skeleton className="h-2.5 w-16" />
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {[0, 1, 2].map(j => <div key={j} className="space-y-1.5"><Skeleton className="h-2.5 w-24" /><Skeleton className="h-9 w-full rounded-lg" /></div>)}
-                  </div>
-                </div>
-              ))}
-            </LoadingRegion>
-          ) : (
-            <div className="space-y-3">
-              {reqRows.length === 0 && <p className="text-xs text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">No extra requirements. Customers only confirm their account and delivery details.</p>}
-              {reqRows.map((r, i) => (
-                <div key={i} className="border border-slate-100 rounded-xl p-3 sm:p-4 space-y-3 bg-slate-50/40">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Field {i + 1}</span>
-                    <div className="flex gap-1">
-                      <button type="button" disabled={i === 0} onClick={() => moveRow(i, -1)} className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer" title="Move up"><ArrowUp size={13} /></button>
-                      <button type="button" disabled={i === reqRows.length - 1} onClick={() => moveRow(i, 1)} className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer" title="Move down"><ArrowDown size={13} /></button>
-                      <button type="button" onClick={() => setReqRows(rows => rows.filter((_, j) => j !== i))} className="p-1 text-slate-400 hover:text-red-600 cursor-pointer" title="Remove"><Trash2 size={13} /></button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <Field label="Label shown to customer">
-                      <input className={inputCls} value={r.label ?? ''} onChange={e => updateRow(i, { label: e.target.value })} placeholder="Government ID number" />
-                    </Field>
-                    <Field label="Key">
-                      <input className={`${inputCls} font-mono`} value={r.fieldKey ?? ''} onChange={e => updateRow(i, { fieldKey: e.target.value })} placeholder="idNumber" />
-                    </Field>
-                    <Field label="Answer type">
-                      <select className={inputCls} value={r.fieldType ?? 'text'} onChange={e => updateRow(i, { fieldType: e.target.value })}>
-                        {REQUIREMENT_FIELD_TYPES.map(t => <option key={t} value={t}>{{ text: 'Text', number: 'Number', date: 'Date', select: 'Dropdown', file: 'File upload' }[t]}</option>)}
-                      </select>
-                    </Field>
-                    {r.fieldType === 'select' && (
-                      <div className="sm:col-span-3">
-                        <Field label="Dropdown options" hint="Separate with commas.">
-                          <input className={inputCls} value={r.optionsCsv ?? ''} onChange={e => updateRow(i, { optionsCsv: e.target.value })} placeholder="NIN, Driver's licence, Passport" />
-                        </Field>
-                      </div>
-                    )}
-                    <div className="sm:col-span-2">
-                      <Field label="Help text">
-                        <input className={inputCls} value={r.helpText ?? ''} onChange={e => updateRow(i, { helpText: e.target.value })} placeholder="Shown under the field" />
-                      </Field>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer sm:pt-6">
-                      <input type="checkbox" className="accent-slate-700" checked={!!r.required} onChange={e => updateRow(i, { required: e.target.checked })} />
-                      Required
-                    </label>
-                  </div>
-                </div>
-              ))}
-              <Button type="button" size="sm" variant="secondary" onClick={() => setReqRows(rows => [...rows, { fieldKey: '', label: '', fieldType: 'text', required: true, optionsCsv: '', helpText: '' }])}>
-                <Plus size={13} /> Add field
-              </Button>
-            </div>
-          )}
-          {reqError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{reqError}</p>}
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
-            <Button variant="secondary" className="sm:flex-1 justify-center" onClick={() => setReqProduct(null)}>Cancel</Button>
-            <Button className="sm:flex-1 justify-center" onClick={saveRequirements} disabled={reqSaving || reqLoading}>
-              {reqSaving && <Loader2 size={14} className="animate-spin" />} Save requirements
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <RequirementsEditor
+        target={reqProduct}
+        intro="Extra details customers must provide when requesting this card, in the order shown."
+        emptyText="No extra requirements. Customers only confirm their account and delivery details."
+        load={getCardProductRequirements}
+        save={(id, requirements) => updateCardProductRequirements(id, requirements, user!.adminId)}
+        onClose={() => setReqProduct(null)}
+        onSaved={text => setNotice({ ok: true, text })}
+      />
     </div>
   )
 }
@@ -425,5 +398,24 @@ function MoneyField({ label, value, onChange, hint }: { label: string; value: st
         <input className={`${inputCls} pl-7`} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder="0" />
       </div>
     </Field>
+  )
+}
+
+function Tile({ label, value, sub, tone, action }: {
+  label: string; value: string; sub: string; tone?: 'amber'; action?: { label: string; onClick: () => void }
+}) {
+  return (
+    <div className={`rounded-2xl border shadow-sm p-4 ${tone === 'amber' ? 'bg-amber-50 border-amber-100' : 'bg-white border-slate-100'}`}>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</p>
+      <p className={`text-xl sm:text-2xl font-black mt-1 truncate ${tone === 'amber' ? 'text-amber-700' : 'text-slate-800'}`}>{value}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-500 truncate">{sub}</p>
+        {action && (
+          <button onClick={action.onClick} className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-amber-800 hover:underline cursor-pointer">
+            {action.label} <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+    </div>
   )
 }

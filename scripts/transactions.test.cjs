@@ -50,3 +50,17 @@ test('CSV export quotes commas and defuses spreadsheet formulas', () => {
   assert.match(row, /"'=HYPERLINK\(""x""\)"/);
   assert.match(row, /"rent, Oct"/);
 });
+
+test('all-transaction rows get names, beneficiaries and failure reasons from the other lists', () => {
+  const row = ex.readTxn({ ...allRow, reference: 'R2', status: 'FAILED', customerId: 'c1' });
+  const other = ex.readTxn({ ...allRow, id: 'a9', reference: 'R9', customerId: 'c2' });
+  const transfer = ex.readTxn({ ...transferRow, status: 'FAILED', failureReason: 'Insufficient funds', bankCode: '058', coreSessionId: '000013231024' });
+  const customers = [ex.readCustomer({ id: 'c2', firstName: 'Bola', lastName: 'Ade', accountNumber: '999', phoneNumber: '0801', txnBlocked: true, txnBlockReason: 'Fraud review' })];
+  const [a, b] = plain(ex.enrichTxns([row, other], [transfer], customers));
+  assert.equal(a.customerName, 'Ada Obi'); assert.equal(a.beneficiaryName, 'Ben'); assert.equal(a.bankName, 'GTBank');
+  assert.equal(a.failureReason, 'Insufficient funds'); assert.equal(a.sessionId, '000013231024'); assert.equal(a.bankCode, '058');
+  assert.equal(b.customerName, 'Bola Ade'); assert.equal(b.customerAccount, '999'); assert.equal(b.customer.blocked, true); assert.equal(b.failureReason, '');
+  const csv = ex.transfersCsv([transfer]);
+  assert.match(csv.split('\r\n')[0], /Sender phone,.*Bank code,Session ID/);
+  assert.match(csv.split('\r\n')[1], /058,000013231024/);
+});

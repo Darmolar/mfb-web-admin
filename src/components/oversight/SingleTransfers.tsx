@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Download, MapPin, RefreshCw } from 'lucide-react'
+import { Download, RefreshCw } from 'lucide-react'
 import moment from 'moment'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
+import { CopyButton, TxnDetailsModal } from './TxnDetailsModal'
 import { useApi } from '../../hooks/useApi'
 import { getTransactions } from '../../api'
 import { allPages } from '../../api/pagination'
@@ -82,13 +82,45 @@ export function SingleTransfers() {
         </div>
       ),
     },
-    { header: 'Type', accessorKey: 'typeLabel', cell: t => <span className="text-xs text-slate-600 whitespace-nowrap">{t.typeLabel}</span> },
-    { header: 'Amount', accessorKey: 'amount', cell: t => <span className="text-sm font-bold text-slate-700 tabular-nums whitespace-nowrap">{naira(t.amount)}</span> },
-    { header: 'Status', accessorKey: 'status', cell: t => <Badge label={statusLabel(t.status)} variant={statusBadge(statusLabel(t.status))} /> },
     {
-      header: '',
-      sortable: false,
-      cell: t => <Button size="sm" variant="secondary" onClick={() => setSelected(t)}>Details</Button>,
+      header: 'Type',
+      accessorKey: 'typeLabel',
+      cell: t => (
+        <div className="min-w-[120px]">
+          <p className="text-xs text-slate-600 whitespace-nowrap">{t.typeLabel}</p>
+          {t.description && <p className="text-[11px] text-slate-400 truncate max-w-[180px]" title={t.description}>“{t.description}”</p>}
+        </div>
+      ),
+    },
+    {
+      header: 'Reference',
+      accessorKey: 'reference',
+      cell: t => (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500">
+          <span className="max-w-[150px] truncate" title={t.reference}>{t.reference}</span>
+          <CopyButton value={t.reference} label="Copy reference" />
+        </span>
+      ),
+    },
+    {
+      header: 'Amount',
+      accessorKey: 'amount',
+      cell: t => (
+        <div className="whitespace-nowrap">
+          <p className="text-sm font-bold text-slate-700 tabular-nums">{naira(t.amount)}</p>
+          {!!t.fee && <p className="text-[11px] text-slate-400">+ {naira(t.fee)} fee</p>}
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'status',
+      cell: t => (
+        <div className="min-w-[100px]">
+          <Badge label={statusLabel(t.status)} variant={statusBadge(statusLabel(t.status))} />
+          {t.failureReason && <p className="text-[11px] text-red-600 mt-1 max-w-[150px]">{t.failureReason}</p>}
+        </div>
+      ),
     },
   ]
 
@@ -129,75 +161,12 @@ export function SingleTransfers() {
         columns={columns}
         data={txs}
         searchPlaceholder="Search name, account, reference…"
-        searchFields={['reference', 'beneficiaryName', 'customerName', 'debitAccount', 'creditAccount', 'bankName']}
+        searchFields={['reference', 'beneficiaryName', 'customerName', 'debitAccount', 'creditAccount', 'bankName', 'description', 'failureReason']}
         emptyMessage="No transfers match these filters."
+        onRowClick={setSelected}
       />
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title="Transfer details" width="max-w-xl">
-        {selected && (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-2xl font-black text-slate-800">{naira(selected.amount)}</p>
-                <p className="text-sm text-slate-500">{selected.typeLabel} transfer · {selected.createdAt ? moment(selected.createdAt).format('DD MMM YYYY, HH:mm') : ''}</p>
-              </div>
-              <Badge label={statusLabel(selected.status)} variant={statusBadge(statusLabel(selected.status))} size="md" />
-            </div>
-
-            {selected.failureReason && (
-              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Why it failed</p>
-                <p className="text-sm text-red-700">{selected.failureReason}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Party title="From" name={selected.customerName} lines={[selected.debitAccount]} />
-              <Party title="To" name={selected.beneficiaryName} lines={[selected.creditAccount, selected.bankName]} />
-            </div>
-
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-              {[
-                ['Fee', naira(selected.fee)],
-                ['Narration', selected.description || '—'],
-                ['Reference', selected.reference],
-                ['IP address', selected.ipAddress || '—'],
-              ].map(([l, v]) => (
-                <div key={l} className="min-w-0">
-                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</dt>
-                  <dd className="text-sm font-semibold text-slate-700 mt-0.5 break-all">{v}</dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="bg-slate-50 rounded-xl px-4 py-3">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Where it was made</p>
-              {selected.location ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-                    <MapPin size={13} className="text-slate-400" /> {selected.location.lat.toFixed(4)}, {selected.location.lng.toFixed(4)}
-                  </span>
-                  <a href={`https://www.google.com/maps?q=${selected.location.lat},${selected.location.lng}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline">
-                    View on Google Maps
-                  </a>
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">Not captured for this transfer.</p>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
-    </div>
-  )
-}
-
-function Party({ title, name, lines }: { title: string; name: string; lines: string[] }) {
-  return (
-    <div className="rounded-xl border border-slate-100 px-4 py-3">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-      <p className="text-sm font-semibold text-slate-800">{name || '—'}</p>
-      {lines.filter(Boolean).map(l => <p key={l} className="text-xs text-slate-500 font-mono">{l}</p>)}
+      <TxnDetailsModal txn={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

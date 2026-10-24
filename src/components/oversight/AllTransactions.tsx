@@ -1,11 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { ChevronLeft, ChevronRight, Filter, RotateCcw } from 'lucide-react'
 import { Badge, statusBadge } from '../ui/Badge'
 import { Button } from '../ui/Button'
-import { Modal } from '../ui/Modal'
 import { useApi } from '../../hooks/useApi'
-import { getAllTransactions } from '../../api'
-import { STATUS_FILTERS, TXN_TYPES, naira, readTxns, type Txn } from '../../api/transactions'
+import { getAllTransactions, getCustomers, getTransactions } from '../../api'
+import { allPages } from '../../api/pagination'
+import {
+  STATUS_FILTERS, TXN_TYPES, enrichTxns, naira, readCustomer, readTxns, type Txn, type TxnCustomer,
+} from '../../api/transactions'
+import { CopyButton, TxnDetailsModal } from './TxnDetailsModal'
 import moment from 'moment'
 import { Skeleton, SkeletonTableRows } from '../ui/Skeleton'
 
@@ -32,7 +35,22 @@ export function AllTransactions() {
     [page, filters],
   )
 
-  const rows = data?.rows ?? []
+  // /transactions/all has no names, beneficiaries or failure reasons; look them up once.
+  const lookups = useApi(async () => {
+    const [transfers, customers] = await Promise.all([
+      allPages(p => getTransactions({ page: p, size: 100 })).catch(() => ({ content: [], totalElements: 0 })),
+      allPages(p => getCustomers({ page: p, size: 100 })).catch(() => ({ content: [], totalElements: 0 })),
+    ])
+    return {
+      transfers: readTxns(transfers),
+      customers: (customers.content as unknown[]).map(readCustomer).filter((c): c is TxnCustomer => c !== null)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }
+  }, [])
+  const rows = useMemo(
+    () => enrichTxns(data?.rows ?? [], lookups.data?.transfers ?? [], lookups.data?.customers ?? []),
+    [data, lookups.data],
+  )
   const total = data?.total ?? rows.length
   const totalPages = data?.totalPages ?? Math.max(1, Math.ceil(total / PAGE_SIZE))
   const active = Object.values(filters).filter(Boolean).length
@@ -47,9 +65,11 @@ export function AllTransactions() {
     <div className="space-y-5">
       <form onSubmit={apply} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 grid grid-cols-2 lg:grid-cols-6 gap-3 items-end">
         <label className="space-y-1 col-span-2">
-          <span className={label}>Customer ID</span>
-          <input className={input} value={draft.customerId} placeholder="All customers"
-            onChange={e => setDraft(d => ({ ...d, customerId: e.target.value }))} />
+          <span className={label}>Customer</span>
+          <select className={input} value={draft.customerId} onChange={e => setDraft(d => ({ ...d, customerId: e.target.value }))}>
+            <option value="">All customers</option>
+            {(lookups.data?.customers ?? []).map(c => <option key={c.id} value={c.id}>{c.name}{c.accountNumber && ` · ${c.accountNumber}`}</option>)}
+          </select>
         </label>
         <label className="space-y-1">
           <span className={label}>Type</span>
@@ -98,24 +118,40 @@ export function AllTransactions() {
             <table className="w-full text-left">
               <thead>
                 <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                  {['Date', 'Type', 'Reference', 'From → To', 'Amount', 'Status'].map(h =>
+                  {['Date', 'Customer', 'Type', 'Reference', 'Amount', 'Status'].map(h =>
                     <th key={h} className="px-4 sm:px-6 py-3 font-bold whitespace-nowrap">{h}</th>)}
                 </tr>
               </thead>
               <tbody aria-busy={loading || undefined}>
                 {loading ? <SkeletonTableRows columns={6} rows={8} /> : rows.map(t => (
-                  <tr key={t.id} onClick={() => setSelected(t)} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer">
+                  <tr key={t.id} onClick={() => setSelected(t)} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer align-top">
                     <td className="px-4 sm:px-6 py-3 text-xs text-slate-500 whitespace-nowrap">{t.createdAt ? moment(t.createdAt).format('DD MMM YYYY, HH:mm') : '—'}</td>
-                    <td className="px-4 sm:px-6 py-3 min-w-[160px]">
+                    <td className="px-4 sm:px-6 py-3 min-w-[150px]">
+                      <p className="text-xs font-semibold text-slate-700">{t.customerName || <span className="text-slate-400 font-normal">Unknown customer</span>}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{t.debitAccount || t.customerAccount || '—'}</p>
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 min-w-[170px]">
                       <p className="text-xs font-semibold text-slate-700">{t.typeLabel}</p>
-                      {t.description && <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{t.description}</p>}
+                      <p className="text-[11px] text-slate-400 truncate max-w-[230px]">
+                        {t.beneficiaryName
+                          ? <>→ {t.beneficiaryName}{t.bankName && ` · ${t.bankName}`}</>
+                          : t.description}
+                      </p>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 text-[11px] font-mono text-slate-500 max-w-[220px] truncate" title={t.reference}>{t.reference}</td>
-                    <td className="px-4 sm:px-6 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
-                      {t.debitAccount || t.creditAccount ? `${t.debitAccount || '—'} → ${t.creditAccount || '—'}` : '—'}
+                    <td className="px-4 sm:px-6 py-3">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-500">
+                        <span className="max-w-[170px] truncate" title={t.reference}>{t.reference}</span>
+                        <CopyButton value={t.reference} label="Copy reference" />
+                      </span>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 text-sm font-bold text-slate-700 tabular-nums whitespace-nowrap">{naira(t.amount)}</td>
-                    <td className="px-4 sm:px-6 py-3">{t.status ? <Badge label={statusLabel(t.status)} variant={statusBadge(statusLabel(t.status))} /> : '—'}</td>
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                      <p className="text-sm font-bold text-slate-700 tabular-nums">{naira(t.amount)}</p>
+                      {!!t.fee && <p className="text-[11px] text-slate-400">+ {naira(t.fee)} fee</p>}
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 min-w-[110px]">
+                      {t.status ? <Badge label={statusLabel(t.status)} variant={statusBadge(statusLabel(t.status))} /> : '—'}
+                      {t.failureReason && <p className="text-[11px] text-red-600 mt-1 max-w-[160px]">{t.failureReason}</p>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -136,40 +172,7 @@ export function AllTransactions() {
         </div>
       </div>
 
-      <Modal open={!!selected} onClose={() => setSelected(null)} title="Transaction details" width="max-w-xl">
-        {selected && (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-2xl font-black text-slate-800">{naira(selected.amount)}</p>
-                <p className="text-sm text-slate-500">{selected.typeLabel}{selected.description && ` · ${selected.description}`}</p>
-              </div>
-              <Badge label={statusLabel(selected.status)} variant={statusBadge(statusLabel(selected.status))} size="md" />
-            </div>
-            {selected.failureReason && (
-              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Why it failed</p>
-                <p className="text-sm text-red-700">{selected.failureReason}</p>
-              </div>
-            )}
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-              {[
-                ['Date', selected.createdAt ? moment(selected.createdAt).format('DD MMM YYYY, HH:mm:ss') : '—'],
-                ['Fee', naira(selected.fee)],
-                ['From account', selected.debitAccount || '—'],
-                ['To account', selected.creditAccount || '—'],
-                ['Reference', selected.reference],
-                ['Customer ID', selected.customerId || '—'],
-              ].map(([l, v]) => (
-                <div key={l} className="min-w-0">
-                  <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</dt>
-                  <dd className="text-sm font-semibold text-slate-700 mt-0.5 break-all">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
-      </Modal>
+      <TxnDetailsModal txn={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

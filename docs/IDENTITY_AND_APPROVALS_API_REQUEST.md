@@ -36,3 +36,24 @@ backend rejected create without it). Please confirm which field is authoritative
 - Department, and built-in roles that have no role id: the UI calls `PATCH /v1/bank-admin/users/{id}` with
   `{ name, role, department, adminId }`. **This endpoint is in neither Postman nor OpenAPI.** Please add it (SUPER_ADMIN
   only, audit-logged) or tell us the right one.
+
+## 5. CardFusion: device secrets returned to the browser (security, urgent)
+
+`GET /v1/bank-admin/cardfusion/devices` returns, for every device, its live `deviceToken` and the office registration
+`officeToken.token`. Anyone with admin portal access (or a browser extension, proxy log or HAR file) can read these
+and impersonate a branch device. The web admin never displays them, but they still arrive in the response.
+
+Please drop `deviceToken` and `officeToken.token` from this response. The UI only needs `id`, `hardwareId`, `status`,
+`registeredAt`, `revokedAt` and `officeToken.description`. Rotate the device tokens currently issued (they have been
+sent to the browser since this endpoint went live). Also:
+
+- None of the CardFusion admin endpoints are in OpenAPI or Postman; please document them.
+- There is no way to deactivate a CardFusion staff user or reset their password from the admin. A staff member who
+  leaves can still sign in on any device that is not revoked.
+
+## 6. Admin sessions end after 15 minutes regardless of activity
+
+The admin access token has a fixed 15-minute lifetime (`exp - iat = 900s`), MFA verify returns no refresh token, and
+`POST /v1/bank-admin/auth/refresh` returns 404. Staff are signed out mid-task. Please either add an admin refresh
+endpoint (refresh token returned at MFA verify) so the portal can renew while the user is active and still sign out
+after 15 minutes idle, or lengthen the token and enforce the idle timeout on the server.

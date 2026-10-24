@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { TabBar } from '../ui/TabBar'
 import { RoleManagement } from './RoleManagement'
 import { ApprovalManagement } from './ApprovalManagement'
@@ -9,7 +9,10 @@ const tabs = [
 ]
 
 export function GovernancePage() {
-  const [active, setActive] = useState('roles')
+  // The tab lives in the URL so links (e.g. from the notifications bell) open the right tab.
+  const [params, setParams] = useSearchParams()
+  const active = tabs.some(t => t.id === params.get('tab')) ? params.get('tab')! : 'roles'
+  const setActive = (id: string) => setParams(id === 'roles' ? {} : { tab: id }, { replace: true })
   return (
     <div className="space-y-6">
       <TabBar tabs={tabs} active={active} onChange={setActive} />

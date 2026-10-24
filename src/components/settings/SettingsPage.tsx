@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { BankStampSettings } from './BankStampSettings'
 import { TabBar } from '../ui/TabBar'
 import { IdentityProviderSettings } from './IdentityProviderSettings'
@@ -23,7 +23,10 @@ const tabs = [
 ]
 
 export function SettingsPage() {
-  const [active, setActive] = useState('identity')
+  // The tab lives in the URL so links (e.g. from the Overview) open the right tab.
+  const [params, setParams] = useSearchParams()
+  const active = tabs.some(t => t.id === params.get('tab')) ? params.get('tab')! : 'identity'
+  const setActive = (id: string) => setParams(id === 'identity' ? {} : { tab: id }, { replace: true })
   return (
     <div className="space-y-6">
       <TabBar tabs={tabs} active={active} onChange={setActive} />

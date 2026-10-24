@@ -60,12 +60,72 @@ export type Txn = {
   customerId: string
   customerName: string
   customerAccount: string
+  /** Sender profile, present on /transactions rows (or filled in by enrichTxns). */
+  customer: TxnCustomer | null
   beneficiaryName: string
   bankName: string
+  bankCode: string
+  /** NIP/core session ID: what other banks need to trace an interbank transfer. */
+  sessionId: string
   failureReason: string
   ipAddress: string
   /** Only when the app actually captured it; never a default. */
   location: { lat: number; lng: number } | null
+}
+
+export type TxnCustomer = {
+  id: string
+  name: string
+  accountNumber: string
+  phone: string
+  email: string
+  bvn: string
+  tier: string
+  status: string
+  blocked: boolean
+  blockReason: string
+}
+
+export function readCustomer(c: unknown): TxnCustomer | null {
+  if (!isObj(c) || !str(c.id)) return null
+  return {
+    id: str(c.id),
+    name: [str(c.firstName), str(c.middleName), str(c.lastName)].filter(Boolean).join(' ') || str(c.username),
+    accountNumber: str(c.accountNumber),
+    phone: str(c.phoneNumber),
+    email: str(c.email),
+    bvn: str(c.bvn),
+    tier: str(c.accountTier),
+    status: str(c.status).toUpperCase(),
+    blocked: c.txnBlocked === true,
+    blockReason: str(c.txnBlockReason),
+  }
+}
+
+/**
+ * /transactions/all rows carry only a customer ID and no failure or beneficiary details. Fill those in from the
+ * customer list and from the transfer list (matched by reference) so every row says who and why.
+ */
+export function enrichTxns(rows: Txn[], transfers: Txn[], customers: TxnCustomer[]): Txn[] {
+  const byRef = new Map(transfers.map(t => [t.reference, t]))
+  const byId = new Map(customers.map(c => [c.id, c]))
+  return rows.map(t => {
+    const x = byRef.get(t.reference)
+    const customer = t.customer ?? x?.customer ?? byId.get(t.customerId) ?? null
+    return {
+      ...t,
+      customer,
+      customerName: t.customerName || customer?.name || '',
+      customerAccount: t.customerAccount || customer?.accountNumber || '',
+      beneficiaryName: t.beneficiaryName || x?.beneficiaryName || '',
+      bankName: t.bankName || x?.bankName || '',
+      bankCode: t.bankCode || x?.bankCode || '',
+      sessionId: t.sessionId || x?.sessionId || '',
+      failureReason: t.failureReason || x?.failureReason || '',
+      ipAddress: t.ipAddress || x?.ipAddress || '',
+      location: t.location ?? x?.location ?? null,
+    }
+  })
 }
 
 export function readTxn(v: unknown): Txn | null {
@@ -91,10 +151,13 @@ export function readTxn(v: unknown): Txn | null {
     creditAccount: str(v.creditAccount),
     description: str(v.description) || str(v.narration),
     customerId: str(c.id) || str(v.customerId),
-    customerName: [str(c.firstName), str(c.lastName)].filter(Boolean).join(' ') || str(c.username),
+    customerName: readCustomer(c)?.name ?? '',
     customerAccount: str(c.accountNumber),
+    customer: readCustomer(c),
     beneficiaryName: str(v.beneficiaryName),
     bankName: str(v.bankName),
+    bankCode: str(v.bankCode),
+    sessionId: str(v.coreSessionId) || str(v.sessionId),
     failureReason: str(v.failureReason),
     ipAddress: str(v.ipAddress),
     location: lat !== null && lng !== null && !(lat === 0 && lng === 0) ? { lat, lng } : null,
@@ -142,8 +205,8 @@ const csvCell = (v: unknown) => {
 }
 
 export function transfersCsv(txns: Txn[]) {
-  const head = ['Reference', 'Date', 'Status', 'Type', 'Amount', 'Fee', 'Sender', 'Sender account', 'Beneficiary', 'Beneficiary account', 'Bank', 'Narration', 'Failure reason']
-  const rows = txns.map(t => [t.reference, t.createdAt, t.status, t.typeLabel, t.amount, t.fee ?? '', t.customerName, t.debitAccount, t.beneficiaryName, t.creditAccount, t.bankName, t.description, t.failureReason])
+  const head = ['Reference', 'Date', 'Status', 'Type', 'Amount', 'Fee', 'Sender', 'Sender account', 'Sender phone', 'Beneficiary', 'Beneficiary account', 'Bank', 'Bank code', 'Session ID', 'Narration', 'Failure reason']
+  const rows = txns.map(t => [t.reference, t.createdAt, t.status, t.typeLabel, t.amount, t.fee ?? '', t.customerName, t.debitAccount, t.customer?.phone ?? '', t.beneficiaryName, t.creditAccount, t.bankName, t.bankCode, t.sessionId, t.description, t.failureReason])
   return [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n')
 }
 

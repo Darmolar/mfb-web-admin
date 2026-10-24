@@ -1,354 +1,314 @@
 import { useState } from 'react'
-import { Plus, Pencil } from 'lucide-react'
+import { ListChecks, Loader2, Pencil, Plus, Power, PowerOff, RefreshCw } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { DataTable, type ColumnDef } from '../ui/DataTable'
+import { RequirementsEditor } from '../ui/RequirementsEditor'
 import { useApi } from '../../hooks/useApi'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getLoanProducts, createLoanProduct, updateLoanProduct,
-  activateLoanProduct, deactivateLoanProduct,
-  getLoanProductRequirements, updateLoanProductRequirements
+  getLoanProducts, createLoanProduct, updateLoanProduct, activateLoanProduct, deactivateLoanProduct,
+  getLoanProductRequirements, updateLoanProductRequirements,
 } from '../../api'
-import type { LoanProduct, LoanProductPayload } from '../../api/types'
+import {
+  EMPLOYMENT_TYPES, EMPTY_LOAN_PRODUCT_FORM, employmentLabel, loanProductPayload, loanProductToForm, readLoanProducts, repaymentEstimate,
+  type LoanProductForm, type LoanProductRecord,
+} from '../../api/loans'
 
-const fmt = (amount: number | undefined | null) =>
-  amount == null ? '—' : `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
-
-const EMPTY: LoanProductPayload = {
-  code: '', name: '', description: '', minAmount: 0, maxAmount: 0,
-  monthlyRatePercent: 0, minTenureMonths: 1, maxTenureMonths: 12,
-  maxPreApprovedAmount: 0, minMonthlyIncome: 0, minAnnualIncome: 0,
-  minAccountAgeDays: 0, adminId: '', allowedEmploymentTypes: '', active: true,
-}
+const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white'
+const naira = (n: number | null) => (n === null ? '—' : `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`)
+const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback)
 
 export function LoanProducts() {
   const { user } = useAuth()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<LoanProduct | null>(null)
-  const [form, setForm] = useState<LoanProductPayload>(EMPTY)
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const { data, loading, error, refetch } = useApi(async () => readLoanProducts((await getLoanProducts()).data), [])
+  const products = data ?? []
+
+  const [editing, setEditing] = useState<LoanProductRecord | 'new' | null>(null)
+  const [form, setForm] = useState<LoanProductForm>(EMPTY_LOAN_PRODUCT_FORM)
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-  const [reqProduct, setReqProduct] = useState<LoanProduct | null>(null)
-  const [reqs, setReqs] = useState<any[]>([])
+  const [formError, setFormError] = useState<string | null>(null)
+  const [toggling, setToggling] = useState<LoanProductRecord | null>(null)
+  const [toggleBusy, setToggleBusy] = useState(false)
+  const [reqProduct, setReqProduct] = useState<LoanProductRecord | null>(null)
 
-  const products = useApi<LoanProduct[]>(async () => {
-    const res = await getLoanProducts()
-    return res.data
-  })
+  const set = <K extends keyof LoanProductForm>(k: K, v: LoanProductForm[K]) => setForm(f => ({ ...f, [k]: v }))
 
-  const openCreate = () => {
-    setEditing(null)
-    setForm({ ...EMPTY, adminId: user?.adminId ?? '' })
-    setSaveError('')
-    setModalOpen(true)
-  }
-
-  const openEdit = (p: LoanProduct) => {
+  function openForm(p: LoanProductRecord | 'new') {
     setEditing(p)
-    setForm({
-      code: p.code ?? '',
-      name: p.name,
-      description: p.description ?? '',
-      minAmount: p.minAmount ?? 0,
-      maxAmount: p.maxAmount,
-      monthlyRatePercent: p.monthlyRatePercent ?? 0,
-      minTenureMonths: p.minTenureMonths ?? 1,
-      maxTenureMonths: p.maxTenureMonths ?? 12,
-      maxPreApprovedAmount: 0,
-      minMonthlyIncome: 0,
-      minAnnualIncome: 0,
-      minAccountAgeDays: 0,
-      adminId: user?.adminId ?? '',
-      allowedEmploymentTypes: '',
-      active: true,
-    })
-    setSaveError('')
-    setModalOpen(true)
+    setForm(p === 'new' ? EMPTY_LOAN_PRODUCT_FORM : loanProductToForm(p))
+    setFormError(null)
   }
 
-  const handleSave = async () => {
-    if (!user) return
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    if (!user || !editing) return
+    const built = loanProductPayload(form, user.adminId)
+    if ('error' in built) { setFormError(built.error); return }
     setSaving(true)
-    setSaveError('')
+    setFormError(null)
     try {
-      const payload = { ...form, adminId: user.adminId }
-      if (editing) {
-        await updateLoanProduct(editing.id, payload)
-      } else {
-        await createLoanProduct(payload)
-      }
-      setModalOpen(false)
-      products.refetch()
+      if (editing === 'new') await createLoanProduct(built.payload)
+      else await updateLoanProduct(editing.id, built.payload)
+      setNotice({ ok: true, text: `${built.payload.name} ${editing === 'new' ? 'created' : 'updated'}.` })
+      setEditing(null)
+      refetch()
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed')
+      setFormError(errText(err, 'The product could not be saved.'))
     } finally {
       setSaving(false)
     }
   }
 
-  const handleToggle = async (p: LoanProduct) => {
-    if (!user) return
+  async function confirmToggle() {
+    if (!toggling || !user) return
+    setToggleBusy(true)
     try {
-      const isActive = p.active ?? p.status === 'ACTIVE'
-      if (isActive) {
-        await deactivateLoanProduct(p.id, user.adminId)
-      } else {
-        await activateLoanProduct(p.id, user.adminId)
-      }
-      products.refetch()
-    } catch {
-      /* silently ignore */
-    }
-  }
-
-  const openReqs = async (p: LoanProduct) => {
-    try {
-      setReqProduct(p)
-      const res = await getLoanProductRequirements(p.id)
-      setReqs(Array.isArray(res.data) ? res.data : [])
+      if (toggling.active) await deactivateLoanProduct(toggling.id, user.adminId)
+      else await activateLoanProduct(toggling.id, user.adminId)
+      setNotice({ ok: true, text: `${toggling.name} ${toggling.active ? 'deactivated' : 'activated'}.` })
+      refetch()
     } catch (err) {
-      setReqs([])
+      setNotice({ ok: false, text: errText(err, 'The status could not be changed.') })
+    } finally {
+      setToggling(null)
+      setToggleBusy(false)
     }
   }
 
-  const saveReqs = async () => {
-    if (!reqProduct) return
-    try {
-      await updateLoanProductRequirements(reqProduct.id, reqs)
-      setReqProduct(null)
-      alert('Requirements updated')
-    } catch (err) {
-      alert('Failed to update')
-    }
-  }
+  // Example shown in the form so the rate's effect is obvious.
+  const exampleAmount = Number(form.maxAmount) > 0 ? Math.min(100_000, Number(form.maxAmount)) : 100_000
+  const exampleTenure = Number(form.maxTenureMonths) > 0 ? Math.min(6, Number(form.maxTenureMonths)) : 6
+  const example = form.monthlyRatePercent.trim() !== '' && Number.isFinite(Number(form.monthlyRatePercent))
+    ? repaymentEstimate(exampleAmount, Number(form.monthlyRatePercent), exampleTenure) : null
 
-  const addReq = () => setReqs([...reqs, { id: crypto.randomUUID(), name: '', type: 'STRING', required: true }])
-  const updateReq = (i: number, k: string, v: any) => {
-    const next = [...reqs]
-    next[i] = { ...next[i], [k]: v }
-    setReqs(next)
-  }
-  const removeReq = (i: number) => setReqs(reqs.filter((_, idx) => idx !== i))
-
-  const set = (k: keyof LoanProductPayload, v: string | number | boolean) =>
-    setForm(f => ({ ...f, [k]: v }))
-
-  const fieldClass = 'w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 text-slate-700'
-
-  const columns: ColumnDef<LoanProduct>[] = [
+  const columns: ColumnDef<LoanProductRecord>[] = [
     {
-      header: 'Code',
-      accessorKey: 'code',
-      cell: (p) => <span className="text-xs font-mono text-slate-500">{p.code ?? '—'}</span>,
-    },
-    {
-      header: 'Name',
+      header: 'Product',
       accessorKey: 'name',
-      cell: (p) => (
-        <>
+      cell: p => (
+        <div className="min-w-[180px] max-w-[240px]">
           <p className="text-sm font-semibold text-slate-700">{p.name}</p>
-          {p.description && <p className="text-xs text-slate-400 truncate max-w-[160px]">{p.description}</p>}
-        </>
+          <p className="text-[11px] text-slate-400 font-mono">{p.code}</p>
+          {p.description && <p className="text-[11px] text-slate-400 truncate" title={p.description}>{p.description}</p>}
+        </div>
       ),
     },
     {
-      header: 'Rate / mo',
-      accessorKey: 'monthlyRatePercent',
-      cell: (p) => <span className="text-sm font-semibold text-slate-700">{p.monthlyRatePercent ?? p.interestRate ?? '—'}%</span>,
-    },
-    {
-      header: 'Min Amount',
-      accessorKey: 'minAmount',
-      cell: (p) => <span className="text-sm text-slate-600">{p.minAmount ? fmt(p.minAmount) : '—'}</span>,
-    },
-    {
-      header: 'Max Amount',
+      header: 'Amount',
       accessorKey: 'maxAmount',
-      cell: (p) => <span className="text-sm text-slate-600">{fmt(p.maxAmount)}</span>,
+      cell: p => (
+        <div className="text-xs whitespace-nowrap">
+          <p className="text-slate-700 font-semibold">{naira(p.minAmount)} – {naira(p.maxAmount)}</p>
+          {!!p.maxPreApprovedAmount && <p className="text-slate-400">Pre-approved up to {naira(p.maxPreApprovedAmount)}</p>}
+        </div>
+      ),
     },
     {
-      header: 'Tenure',
+      header: 'Pricing',
+      accessorKey: 'monthlyRatePercent',
+      cell: p => (
+        <div className="text-xs whitespace-nowrap">
+          <p className="text-slate-700 font-semibold">{p.monthlyRatePercent ?? '—'}% / month</p>
+          <p className="text-slate-400">{p.minTenureMonths ?? '?'}–{p.maxTenureMonths ?? '?'} months</p>
+        </div>
+      ),
+    },
+    {
+      header: 'Eligibility',
       sortable: false,
-      cell: (p) => <span className="text-xs text-slate-500">{p.minTenureMonths ?? '?'}–{p.maxTenureMonths ?? '?'} mo</span>,
+      cell: p => (
+        <div className="text-[11px] text-slate-500 space-y-0.5 min-w-[160px]">
+          <p>Income ≥ {p.minMonthlyIncome ? `${naira(p.minMonthlyIncome)}/mo` : 'any'}</p>
+          <p>Account age ≥ {p.minAccountAgeDays ? `${p.minAccountAgeDays} days` : 'any'}</p>
+          <p className="truncate max-w-[200px]" title={p.employmentTypes.map(employmentLabel).join(', ')}>
+            {p.employmentTypes.length ? p.employmentTypes.map(employmentLabel).join(', ') : 'Any employment'}
+          </p>
+        </div>
+      ),
     },
-    {
-      header: 'Status',
-      accessorKey: 'status',
-      cell: (p) => {
-        const isActive = p.active ?? p.status === 'ACTIVE'
-        return <Badge label={isActive ? 'Active' : 'Inactive'} variant={isActive ? 'green' : 'gray'} />
-      },
-    },
+    { header: 'Status', accessorKey: 'active', cell: p => <Badge label={p.active ? 'Active' : 'Inactive'} variant={p.active ? 'green' : 'gray'} /> },
     {
       header: 'Actions',
       sortable: false,
-      cell: (p) => {
-        const isActive = p.active ?? p.status === 'ACTIVE'
-        return (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => openEdit(p)}><Pencil size={12} /></Button>
-            <Button size="sm" variant="ghost" onClick={() => openReqs(p)}>Reqs</Button>
-            <Button size="sm" variant={isActive ? 'danger' : 'success'} onClick={() => handleToggle(p)}>
-              {isActive ? 'Deactivate' : 'Activate'}
-            </Button>
-          </div>
-        )
-      },
+      cell: p => (
+        <div className="flex gap-1">
+          <IconButton title="Edit product" onClick={() => openForm(p)}><Pencil size={14} /></IconButton>
+          <IconButton title="Application requirements" onClick={() => setReqProduct(p)}><ListChecks size={14} /></IconButton>
+          <IconButton title={p.active ? 'Deactivate' : 'Activate'} onClick={() => setToggling(p)} tone={p.active ? 'amber' : 'green'}>
+            {p.active ? <PowerOff size={14} /> : <Power size={14} />}
+          </IconButton>
+        </div>
+      ),
     },
   ]
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-slate-500">{products.data?.length ?? 0} products</p>
-        <Button onClick={openCreate}><Plus size={14} /> New Product</Button>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-bold text-slate-700">Loan products</h3>
+          <p className="text-xs text-slate-500 mt-0.5">The loans customers can apply for in the app, with their pricing and eligibility rules.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer" title="Refresh"><RefreshCw size={13} /></button>
+          <Button size="sm" onClick={() => openForm('new')}><Plus size={14} /> New product</Button>
+        </div>
       </div>
 
-      {products.error ? (
-        <p className="text-sm text-red-500 py-12 text-center">{products.error}</p>
+      {notice && (
+        <div className={`text-xs font-semibold rounded-xl px-4 py-3 border flex justify-between gap-4 ${notice.ok ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+          <span>{notice.text}</span>
+          <button onClick={() => setNotice(null)} className="opacity-60 hover:opacity-100 cursor-pointer">Dismiss</button>
+        </div>
+      )}
+
+      {error && !loading ? (
+        <div className="px-6 py-10 text-center">
+          <p className="text-xs text-red-500 mb-3">{error}</p>
+          <Button size="sm" variant="secondary" onClick={refetch}>Retry</Button>
+        </div>
       ) : (
-        <DataTable<LoanProduct>
+        <DataTable<LoanProductRecord>
           columns={columns}
-          data={products.data ?? []}
-          loading={products.loading && !products.data}
-          searchPlaceholder="Search products…"
-          emptyMessage="No loan products yet."
+          data={products}
+          loading={loading && !data}
+          loadingRows={4}
+          searchPlaceholder="Search loan products…"
+          searchFields={['name', 'code', 'description']}
+          emptyMessage="No loan products yet. Create one to let customers apply."
         />
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Loan Product' : 'New Loan Product'} width="max-w-2xl">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Code</label>
-              <input value={form.code} onChange={e => set('code', e.target.value)} className={fieldClass} placeholder="e.g. PERSONAL_LOAN" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Name</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)} className={fieldClass} placeholder="Product name" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Description</label>
-            <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={2} className={`${fieldClass} resize-none`} placeholder="Brief description" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Amount (₦)</label>
-              <input type="number" value={form.minAmount} onChange={e => set('minAmount', +e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Amount (₦)</label>
-              <input type="number" value={form.maxAmount} onChange={e => set('maxAmount', +e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Monthly Rate %</label>
-              <input type="number" step="0.01" value={form.monthlyRatePercent} onChange={e => set('monthlyRatePercent', +e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Tenure (months)</label>
-              <input type="number" value={form.minTenureMonths} onChange={e => set('minTenureMonths', +e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Tenure (months)</label>
-              <input type="number" value={form.maxTenureMonths} onChange={e => set('maxTenureMonths', +e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Monthly Income (₦)</label>
-              <input type="number" value={form.minMonthlyIncome} onChange={e => set('minMonthlyIncome', +e.target.value)} className={fieldClass} />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Min Account Age (days)</label>
-              <input type="number" value={form.minAccountAgeDays} onChange={e => set('minAccountAgeDays', +e.target.value)} className={fieldClass} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Max Pre Approved Amount (₦)</label>
-              <input type="number" value={form.maxPreApprovedAmount} onChange={e => set('maxPreApprovedAmount', +e.target.value)} className={fieldClass} />
-            </div> 
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Allowed Employment Types</label>
-              <select
-                multiple
-                value={form.allowedEmploymentTypes ? form.allowedEmploymentTypes.split(',') : []}
-                onChange={e => {
-                  const selected = Array.from(e.target.selectedOptions, option => option.value)
-                  set('allowedEmploymentTypes', selected.join(','))
-                }}
-                className={fieldClass}
-                style={{ height: '80px' }}
-              >
-                <option value="EMPLOYED">Employed</option>
-                <option value="SELF_EMPLOYED">Self Employed</option>
-                <option value="CONTRACT">Contract</option>
-                <option value="UNEMPLOYED">Unemployed</option>
-                <option value="STUDENT">Student</option>
-              </select>
-              <p className="text-[9px] text-slate-400 mt-1">Hold Cmd/Ctrl to select multiple</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 mt-2">
-            <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4 accent-slate-700" />
-            <label className="text-sm font-semibold text-slate-700">Active</label>
-          </div>
-
-          {saveError && (
-            <p className="text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{saveError}</p>
-          )}
-
-          <div className="h-px bg-slate-100" />
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save Product'}</Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={!!reqProduct} onClose={() => setReqProduct(null)} title="Product Requirements" width="max-w-3xl">
-        <div className="space-y-4">
-          <p className="text-xs text-slate-500">Configure requirements for {reqProduct?.name}</p>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-            {reqs.map((req, i) => (
-              <div key={req.id || i} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200">
-                <input className="flex-1 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-300" placeholder="Field name (e.g. BVN)" value={req.name || ''} onChange={e => updateReq(i, 'name', e.target.value)} />
-                <select className="w-32 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-slate-300" value={req.type || 'STRING'} onChange={e => updateReq(i, 'type', e.target.value)}>
-                  <option value="STRING">Text</option>
-                  <option value="NUMBER">Number</option>
-                  <option value="FILE">File</option>
-                  <option value="BOOLEAN">Boolean</option>
-                </select>
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 px-2 font-semibold">
-                  <input type="checkbox" className="w-3.5 h-3.5 accent-slate-700" checked={req.required ?? true} onChange={e => updateReq(i, 'required', e.target.checked)} />
-                  Required
-                </label>
-                <Button size="sm" variant="danger" onClick={() => removeReq(i)}>Remove</Button>
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={editing === 'new' ? 'New loan product' : `Edit ${editing?.name ?? ''}`} width="max-w-2xl">
+        <form onSubmit={save} className="space-y-5">
+          <Section title="Product">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Product name" required><input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Personal Loan" /></Field>
+              <Field label="Code" required hint={editing === 'new' ? 'Used by the app; capitals, digits and _ only.' : 'The code cannot change after creation.'}>
+                <input className={`${inputCls} font-mono uppercase`} value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="PERSONAL_001" disabled={editing !== 'new'} />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Description" hint="Shown to customers when they choose a loan.">
+                  <textarea className={`${inputCls} resize-none`} rows={2} value={form.description} onChange={e => set('description', e.target.value)} />
+                </Field>
               </div>
-            ))}
-            {reqs.length === 0 && <p className="text-xs text-slate-400 py-4 text-center">No requirements configured yet.</p>}
+            </div>
+          </Section>
+
+          <Section title="Amount, pricing and tenure">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Money label="Minimum amount" value={form.minAmount} onChange={v => set('minAmount', v)} required />
+              <Money label="Maximum amount" value={form.maxAmount} onChange={v => set('maxAmount', v)} required />
+              <Field label="Monthly interest rate" required>
+                <div className="relative"><input className={`${inputCls} pr-8`} inputMode="decimal" value={form.monthlyRatePercent} onChange={e => set('monthlyRatePercent', e.target.value)} placeholder="4" /><span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span></div>
+              </Field>
+              <Field label="Minimum tenure (months)" required><input className={inputCls} inputMode="numeric" value={form.minTenureMonths} onChange={e => set('minTenureMonths', e.target.value)} /></Field>
+              <Field label="Maximum tenure (months)" required><input className={inputCls} inputMode="numeric" value={form.maxTenureMonths} onChange={e => set('maxTenureMonths', e.target.value)} /></Field>
+              <Money label="Pre-approved up to" value={form.maxPreApprovedAmount} onChange={v => set('maxPreApprovedAmount', v)} hint="Above this needs closer review." />
+            </div>
+            {example && (
+              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+                Example: {naira(exampleAmount)} over {exampleTenure} months repays <strong>{naira(example.total)}</strong> ({naira(example.monthly)}/month, {naira(example.interest)} interest).
+              </p>
+            )}
+          </Section>
+
+          <Section title="Who can apply">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Money label="Minimum monthly income" value={form.minMonthlyIncome} onChange={v => set('minMonthlyIncome', v)} />
+              <Money label="Minimum annual income" value={form.minAnnualIncome} onChange={v => set('minAnnualIncome', v)} />
+              <Field label="Minimum account age (days)"><input className={inputCls} inputMode="numeric" value={form.minAccountAgeDays} onChange={e => set('minAccountAgeDays', e.target.value)} /></Field>
+            </div>
+            <Field label="Employment types allowed" hint="Leave all unticked to allow any.">
+              <div className="flex flex-wrap gap-2">
+                {[...new Set([...Object.keys(EMPLOYMENT_TYPES), ...form.employmentTypes])].map(t => {
+                  const on = form.employmentTypes.includes(t)
+                  return (
+                    <label key={t} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${on ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+                      <input type="checkbox" className="sr-only" checked={on} onChange={e => set('employmentTypes', e.target.checked ? [...form.employmentTypes, t] : form.employmentTypes.filter(x => x !== t))} />
+                      {employmentLabel(t)}
+                    </label>
+                  )
+                })}
+              </div>
+            </Field>
+          </Section>
+
+          <label className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer">
+            <input type="checkbox" className="accent-slate-700" checked={form.active} onChange={e => set('active', e.target.checked)} />
+            Active: customers can apply for this loan
+          </label>
+
+          {formError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{formError}</p>}
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+            <Button type="button" variant="secondary" className="sm:flex-1 justify-center" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button type="submit" className="sm:flex-1 justify-center" disabled={saving}>
+              {saving && <Loader2 size={14} className="animate-spin" />} {editing === 'new' ? 'Create product' : 'Save changes'}
+            </Button>
           </div>
-          <div className="flex gap-3">
-            <Button size="sm" variant="secondary" onClick={addReq}><Plus size={14} /> Add Requirement</Button>
-          </div>
-          <div className="h-px bg-slate-100" />
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setReqProduct(null)}>Cancel</Button>
-            <Button className="flex-1" onClick={saveReqs}>Save Requirements</Button>
-          </div>
-        </div>
+        </form>
       </Modal>
-    </>
+
+      <Modal open={!!toggling} onClose={() => setToggling(null)} title={toggling?.active ? 'Deactivate loan product' : 'Activate loan product'} width="max-w-sm">
+        {toggling && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              {toggling.active
+                ? <>Customers will no longer be able to apply for <strong>{toggling.name}</strong>. Existing loans are not affected.</>
+                : <>Customers will be able to apply for <strong>{toggling.name}</strong> in the app straight away.</>}
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
+              <Button variant="secondary" className="sm:flex-1 justify-center" onClick={() => setToggling(null)}>Cancel</Button>
+              <Button variant={toggling.active ? 'danger' : 'success'} className="sm:flex-1 justify-center" onClick={confirmToggle} disabled={toggleBusy}>
+                {toggleBusy && <Loader2 size={14} className="animate-spin" />} {toggling.active ? 'Deactivate' : 'Activate'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <RequirementsEditor
+        target={reqProduct}
+        intro="Extra information or documents customers must provide when applying for this loan, in the order shown."
+        emptyText="No extra requirements. Customers only provide the standard application details."
+        load={getLoanProductRequirements}
+        save={(id, requirements) => updateLoanProductRequirements(id, requirements, user!.adminId)}
+        onClose={() => setReqProduct(null)}
+        onSaved={text => setNotice({ ok: true, text })}
+      />
+    </div>
+  )
+}
+
+function IconButton({ title, onClick, tone, children }: { title: string; onClick: () => void; tone?: 'amber' | 'green'; children: React.ReactNode }) {
+  const hover = tone === 'amber' ? 'hover:text-amber-600 hover:bg-amber-50' : tone === 'green' ? 'hover:text-emerald-600 hover:bg-emerald-50' : 'hover:text-slate-700 hover:bg-slate-100'
+  return <button type="button" onClick={onClick} title={title} aria-label={title} className={`p-1.5 rounded-lg text-slate-400 cursor-pointer ${hover}`}>{children}</button>
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div className="space-y-3"><p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{title}</p>{children}</div>
+}
+
+function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="block space-y-1.5">
+      <span className="text-xs font-semibold text-slate-600">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</span>
+      {children}
+      {hint && <span className="block text-[11px] text-slate-400">{hint}</span>}
+    </div>
+  )
+}
+
+function Money({ label, value, onChange, hint, required }: { label: string; value: string; onChange: (v: string) => void; hint?: string; required?: boolean }) {
+  return (
+    <Field label={label} hint={hint} required={required}>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">₦</span>
+        <input className={`${inputCls} pl-7`} inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder="0" />
+      </div>
+    </Field>
   )
 }

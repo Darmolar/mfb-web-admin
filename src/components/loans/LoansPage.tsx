@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { TabBar } from '../ui/TabBar'
 import { LoanProducts } from './LoanProducts'
 import { LoanApplications } from './LoanApplications'
@@ -9,10 +9,12 @@ const tabs = [
 ]
 
 export function LoansPage() {
-  const [active, setActive] = useState('products')
+  // The tab lives in the URL so returning from an application lands back on Applications.
+  const [params, setParams] = useSearchParams()
+  const active = params.get('tab') === 'applications' ? 'applications' : 'products'
   return (
     <div className="space-y-6">
-      <TabBar tabs={tabs} active={active} onChange={setActive} />
+      <TabBar tabs={tabs} active={active} onChange={id => setParams(id === 'products' ? {} : { tab: id }, { replace: true })} />
       {active === 'products' && <LoanProducts />}
       {active === 'applications' && <LoanApplications />}
     </div>

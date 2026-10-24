@@ -589,8 +589,9 @@ export function deactivateSavingsProduct(productId: string, adminId: string) {
     body: JSON.stringify({ adminId }),
   })
 }
-export function getSavingsGoals() {
-  return request<PaginatedData<SavingsGoal>>('/v1/bank-admin/savings/goals')
+export function getSavingsGoals(params: { page?: number; size?: number } = {}) {
+  const qs = buildQueryString({ page: params.page ?? 0, size: params.size ?? 100 })
+  return request<PaginatedData<SavingsGoal>>(`/v1/bank-admin/savings/goals${qs}`)
 }
 export function suspendSavingsGoal(goalId: string, adminId: string) {
   return request<{ success: boolean }>(`/v1/bank-admin/savings/goals/${goalId}/suspend`, {
@@ -636,7 +637,7 @@ export function deactivateLoanProduct(productId: string, adminId: string) {
   })
 }
 export function getLoanApplications(params: { status?: string; page?: number; size?: number } = {}) {
-  const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 20 })
+  const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 100 })
   return request<PaginatedData<LoanApplication>>(`/v1/bank-admin/loans/applications${qs}`)
 }
 export function approveLoanApplication(applicationId: string, payload: { adminId: string; approvedAmount: number; notes: string }) {
@@ -721,10 +722,22 @@ export function getLoanProductRequirements(productId: string) {
   return request<any>(`/v1/bank-admin/loans/products/${productId}/requirements`)
 }
 
-export function updateLoanProductRequirements(productId: string, data: any) {
-  return request<any>(`/v1/bank-admin/loans/products/${productId}/requirements`, {
+// Same shape as card product requirements (Postman "Set Loan Product Requirements").
+export function updateLoanProductRequirements(productId: string, requirements: CardProductRequirement[], adminId: string) {
+  return request<unknown>(`/v1/bank-admin/loans/products/${productId}/requirements`, {
     method: 'PUT',
-    body: JSON.stringify(data)
+    body: JSON.stringify({ adminId, requirements })
+  })
+}
+
+export function getLoanComments(applicationId: string) {
+  return request<unknown>(`/v1/bank-admin/loans/applications/${applicationId}/comments`)
+}
+
+export function addLoanComment(applicationId: string, comment: string) {
+  return request<unknown>(`/v1/bank-admin/loans/applications/${applicationId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ comment })
   })
 }
 
@@ -1199,13 +1212,16 @@ export function updateCbaProductCodes(payload: CbaProductCodes) {
   }, true)
 }
 
-type FeeEnvelope<T> = { status: 'success' | 'error'; data?: T; message?: string; code?: string }
+type FeeEnvelope<T> = { status?: 'success' | 'error'; success?: boolean; data?: T; message?: string; code?: string; errorCode?: string }
 
+// Fee endpoints first answered { status: 'success', data }; the live backend (2026-10-24) uses the standard
+// { success: true, data } envelope. Accept either.
 async function feeRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await request<FeeEnvelope<T>>(path, init, true)
   const body = response.data
-  if (!body || body.status !== 'success' || body.data === undefined) {
-    throw new ApiError(body?.message ?? 'Fee request failed', 200, body?.code)
+  const ok = body && (body.status === 'success' || body.success === true)
+  if (!body || !ok || body.data === undefined) {
+    throw new ApiError(body?.message ?? 'Fee request failed', 200, body?.code ?? body?.errorCode)
   }
   return body.data
 }
