@@ -25,6 +25,8 @@ export function LoanSchedule({ app, adminId, onUploaded }: { app: LoanApp; admin
   const rows = schedule.data ?? []
   const totals = scheduleTotals(rows)
   const uploadable = canUploadSchedule(app.status)
+  // Never offer an upload while the current schedule is unknown: it would skip the replace warning.
+  const scheduleKnown = !!schedule.data && !schedule.loading && !schedule.error
 
   return (
     <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
@@ -36,8 +38,9 @@ export function LoanSchedule({ app, adminId, onUploaded }: { app: LoanApp; admin
             <p className="text-[11px] text-slate-400 mt-0.5">What the customer sees and repays against in the app</p>
           </div>
         </div>
-        {uploadable && (
-          <Button size="sm" variant={rows.length ? 'secondary' : 'primary'} onClick={() => setOpen(true)}>
+        {uploadable && scheduleKnown && (
+          <Button size="sm" variant={rows.length ? 'secondary' : 'primary'} onClick={() => setOpen(true)} disabled={!adminId}
+            title={adminId ? undefined : 'Sign in again to upload: your admin ID is missing.'}>
             <Upload size={14} /> {rows.length ? 'Replace schedule' : 'Upload schedule'}
           </Button>
         )}
@@ -134,14 +137,15 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
     setErr(null); setParsed(null); setFileName(f?.name ?? '')
     if (!f) return
     if (f.size > 1_000_000) { setErr('That file is too large for a repayment schedule (over 1 MB).'); return }
-    setParsed(parseScheduleCsv(await f.text(), principal))
+    setParsed(parseScheduleCsv(await f.text(), principal, app.disbursementDate))
   }
 
   const template = () => {
     const rows = scheduleTemplate(principal, app.tenureMonths || 1, app.monthlyRatePercent ?? 0, app.disbursementDate)
     const url = URL.createObjectURL(new Blob([scheduleToCsv(rows)], { type: 'text/csv' }))
     const a = Object.assign(document.createElement('a'), { href: url, download: `schedule-${app.number || app.id}.csv` })
-    a.click(); URL.revokeObjectURL(url)
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const upload = async () => {
@@ -181,9 +185,9 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-white">
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-white focus-within:ring-2 focus-within:ring-slate-400">
             <Upload size={14} /> Choose CSV file
-            <input ref={input} id="schedule-csv" type="file" accept=".csv,text/csv" className="sr-only" onChange={e => void pick(e.target.files?.[0])} disabled={busy} />
+            <input ref={input} id="schedule-csv" type="file" accept=".csv,text/csv" className="sr-only" onChange={e => { const f = e.target.files?.[0]; e.currentTarget.value = ''; void pick(f) }} disabled={busy} />
           </label>
           <button type="button" onClick={template} className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
             <Download size={13} /> Download a template for this loan
@@ -192,14 +196,14 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
         </div>
 
         {parsed && parsed.errors.length > 0 && (
-          <div className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 space-y-1">
+          <div role="alert" className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 space-y-1">
             <p className="font-semibold">Fix these in the file, then choose it again:</p>
             <ul className="list-disc pl-4 space-y-0.5">{parsed.errors.slice(0, 8).map(e => <li key={e}>{e}</li>)}</ul>
             {parsed.errors.length > 8 && <p>…and {parsed.errors.length - 8} more.</p>}
           </div>
         )}
         {parsed && !parsed.errors.length && parsed.warnings.length > 0 && (
-          <ul className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-0.5">
+          <ul role="status" className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-0.5">
             {parsed.warnings.map(w => <li key={w} className="flex gap-2"><AlertTriangle size={13} className="shrink-0 mt-0.5" /> {w}</li>)}
           </ul>
         )}

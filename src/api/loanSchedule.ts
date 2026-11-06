@@ -51,17 +51,35 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 const validDate = (s: string) => DATE.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s
 const AMOUNT = /^\d+(\.\d{1,2})?$/
 
+/** Splits one CSV line, honouring quoted cells ("10,000.00") and dropping trailing empty cells from spreadsheet exports. */
+export function splitCsvLine(line: string): string[] {
+  const cells: string[] = []
+  let cur = '', quoted = false
+  for (let k = 0; k < line.length; k++) {
+    const ch = line[k]
+    if (ch === '"') { if (quoted && line[k + 1] === '"') { cur += '"'; k++ } else quoted = !quoted }
+    else if (ch === ',' && !quoted) { cells.push(cur.trim()); cur = '' }
+    else cur += ch
+  }
+  cells.push(cur.trim())
+  while (cells.length > 5 && cells[cells.length - 1] === '') cells.pop()
+  return cells
+}
+
+const isHeader = (cells: string[]) => /installment|instalment|due|principal/i.test(cells.join(' ')) && !/^\d+$/.test(cells[0] ?? '')
+
 export type ParsedSchedule = { rows: ScheduleRow[]; errors: string[]; warnings: string[] }
 
 /**
  * Checks a schedule CSV the way the backend reads it (5 columns, optional header) and
  * reports every problem by line, so nothing reaches the customer half-right.
  */
-export function parseScheduleCsv(text: string, expectedPrincipal?: number | null): ParsedSchedule {
+export function parseScheduleCsv(text: string, expectedPrincipal?: number | null, disbursedOn?: string): ParsedSchedule {
   const errors: string[] = [], warnings: string[] = [], rows: ScheduleRow[] = []
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => ({ n: i + 1, cells: l.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1').trim()) }))
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => ({ n: i + 1, cells: splitCsvLine(l) }))
     .filter(l => l.cells.some(c => c !== ''))
-  if (lines.length && !/^\d+$/.test(lines[0].cells[0])) lines.shift() // header row
+  // 5: only a row that names the columns is a header; anything else is checked as data.
+  if (lines.length && isHeader(lines[0].cells)) lines.shift()
   if (!lines.length) return { rows, errors: ['The file has no instalment rows.'], warnings }
 
   for (const { n, cells } of lines) {
@@ -71,8 +89,9 @@ export function parseScheduleCsv(text: string, expectedPrincipal?: number | null
     if (!/^\d+$/.test(inst) || Number(inst) < 1) lineErrors.push('instalment number must be a whole number from 1')
     if (!validDate(due)) lineErrors.push(`due date "${due}" must be a real date written YYYY-MM-DD`)
     for (const [label, v] of [['principal', p], ['interest', i], ['total', t]] as const) {
-      if (!AMOUNT.test(v)) lineErrors.push(`${label} "${v}" must be an amount like 12500.00 (no ₦ or commas)`)
+      if (!AMOUNT.test(v)) lineErrors.push(`${label} "${v}" must be an amount like 12500.00 (remove ₦ and thousand separators)`)
     }
+    if (!lineErrors.length && Number(t) <= 0) lineErrors.push('total must be more than 0')
     if (!lineErrors.length && Math.abs(Number(p) + Number(i) - Number(t)) > 0.01) {
       lineErrors.push(`total ${t} is not principal + interest (${round2(Number(p) + Number(i)).toFixed(2)})`)
     }
@@ -87,6 +106,8 @@ export function parseScheduleCsv(text: string, expectedPrincipal?: number | null
 
   const byNumber = rows.slice().sort((a, b) => a.installment - b.installment)
   if (byNumber.some((r, k) => k > 0 && r.dueDate <= byNumber[k - 1].dueDate)) warnings.push('Due dates are not in increasing order of instalment number.')
+  const disbursedDay = (disbursedOn || '').slice(0, 10)
+  if (validDate(disbursedDay) && byNumber.some(r => r.dueDate <= disbursedDay)) warnings.push(`Some due dates are on or before the disbursement date (${disbursedDay}).`)
   const principal = round2(rows.reduce((s, r) => s + r.principal, 0))
   if (expectedPrincipal && rows.length && !errors.length && Math.abs(principal - expectedPrincipal) > 0.01) {
     warnings.push(`Principal adds up to ₦${principal.toLocaleString('en-NG')}, but the approved amount is ₦${expectedPrincipal.toLocaleString('en-NG')}.`)

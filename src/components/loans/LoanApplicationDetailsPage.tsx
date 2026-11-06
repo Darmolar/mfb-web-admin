@@ -247,7 +247,7 @@ function LoanSteps({ app }: { app: LoanApp }) {
   const steps = [
     { label: 'Submitted', done: true },
     { label: declined ? 'Declined' : 'Approved', done: !['PENDING', 'PENDING_REVIEW'].includes(app.status), bad: declined },
-    { label: 'Offer accepted', done: app.offerAccepted || ['DISBURSED', 'ACTIVE', 'CLOSED'].includes(app.status) },
+    { label: 'Offer accepted', done: app.offerAccepted || ['OFFER_ACCEPTED', 'DISBURSED', 'ACTIVE', 'CLOSED'].includes(app.status) },
     { label: 'Disbursed', done: ['DISBURSED', 'ACTIVE', 'CLOSED'].includes(app.status) },
     { label: 'Closed', done: app.status === 'CLOSED' },
   ].slice(0, declined ? 2 : 5)
@@ -462,7 +462,7 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId }: {
             <p className="text-3xl font-black text-slate-800">{naira(app.approved ?? app.requested)}</p>
             <p className="text-xs text-slate-500 mt-1">to {app.customer?.name ?? 'customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span></p>
           </div>
-          {!app.offerAccepted && (
+          {!app.offerAccepted && app.status !== 'OFFER_ACCEPTED' && (
             <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" /> The customer hasn't accepted the offer yet. Send the offer letter first unless they've agreed another way.
             </p>

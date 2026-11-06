@@ -2,7 +2,7 @@ import { parseKycProcesses, parseKycRequirements } from './kycConfiguration'
 import { validateProductCodes, type CbaProductCodes } from './productCodes'
 import { ADMIN_API_KEY, API_BASE_URL, PUBLIC_API_KEY } from './config'
 import type {
-  IdentityProvider, IdentityProviderSettings, SystemSettings,
+  IdentityProvider, IdentityProviderSettings, LookupProvider, SystemSettings,
   NotificationChannel, NotificationSetting, NotificationSettings,
   VasSettingsResponse, VasAccountsUpdate, VasChargesUpdate, VasCashbackUpdate, GlAccounts,
   CustomerPushRequest, CustomerPushResponse, PushBroadcastRequest,
@@ -1065,7 +1065,7 @@ export function getIdentityProviderSettings() {
   return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers')
 }
 
-export function setBvnProvider(provider: IdentityProvider) {
+export function setBvnProvider(provider: LookupProvider) {
   return request<IdentityProviderSettings>('/v1/bank-admin/settings/identity/providers/bvn', {
     method: 'PUT',
     body: JSON.stringify({ provider }),

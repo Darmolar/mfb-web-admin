@@ -1107,7 +1107,10 @@ export type CardRequestDetails = {
 // Identity provider settings
 // ──────────────────────────────────────────────
 
-export type IdentityProvider = 'ISW' | 'NIBSS' | 'REKOGNITION'
+/** Providers that can look up a BVN or NIN. */
+export type LookupProvider = 'ISW' | 'NIBSS'
+/** Face match can also run on AWS Rekognition. */
+export type IdentityProvider = LookupProvider | 'REKOGNITION'
 
 /** Raw key/value map returned by GET /v1/bank-admin/settings/identity/providers */
 export type IdentityProviderSettings = {
