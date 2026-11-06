@@ -289,6 +289,7 @@ export const LOAN_STATUS: Record<string, { label: string; variant: 'green' | 're
   PENDING: { label: 'Pending review', variant: 'amber', hint: 'Waiting for a decision.' },
   PENDING_REVIEW: { label: 'Pending review', variant: 'amber', hint: 'Waiting for a decision.' },
   APPROVED: { label: 'Approved', variant: 'blue', hint: 'Approved; disburse once the customer accepts the offer.' },
+  OFFER_ACCEPTED: { label: 'Offer accepted', variant: 'blue', hint: 'The customer accepted the offer; ready to disburse.' },
   DECLINED: { label: 'Declined', variant: 'red', hint: 'The application was declined.' },
   REJECTED: { label: 'Declined', variant: 'red', hint: 'The application was declined.' },
   DISBURSED: { label: 'Disbursed', variant: 'purple', hint: 'Funds paid out; repayments running.' },
@@ -297,12 +298,15 @@ export const LOAN_STATUS: Record<string, { label: string; variant: 'green' | 're
 }
 export const loanStatus = (s: string) => LOAN_STATUS[s] ?? { label: titleCase(s), variant: 'slate' as const, hint: '' }
 
-export const LOAN_STATUS_FILTERS = ['PENDING', 'APPROVED', 'DISBURSED', 'CLOSED', 'DECLINED']
+export const LOAN_STATUS_FILTERS = ['PENDING', 'APPROVED', 'OFFER_ACCEPTED', 'DISBURSED', 'CLOSED', 'DECLINED']
+
+/** Approved but not yet paid out: before or after the customer accepts the offer. */
+export const AWAITING_DISBURSEMENT = ['APPROVED', 'OFFER_ACCEPTED']
 
 export function loanActions(status: string) {
   return {
     canDecide: status === 'PENDING' || status === 'PENDING_REVIEW',
-    canDisburse: status === 'APPROVED',
+    canDisburse: AWAITING_DISBURSEMENT.includes(status),
     canSendOffer: status === 'APPROVED',
   }
 }
