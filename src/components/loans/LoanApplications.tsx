@@ -10,7 +10,7 @@ import { useApi } from '../../hooks/useApi'
 import { getLoanApplications, getLoanProducts } from '../../api'
 import { allPages } from '../../api/pagination'
 import {
-  LOAN_STATUS_FILTERS, appRepayment, loanActions, loanStatus, readLoanApps, readLoanProducts, type LoanApp,
+  AWAITING_DISBURSEMENT, LOAN_STATUS_FILTERS, appRepayment, loanActions, loanStatus, readLoanApps, readLoanProducts, type LoanApp,
 } from '../../api/loans'
 
 const naira = (n: number | null | undefined) => (n == null ? '—' : `₦${n.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`)
@@ -46,6 +46,7 @@ export function LoanApplications() {
     acc[r.status] = { n: x.n + 1, value: x.value + (r.approved ?? r.requested) }
     return acc
   }, {})
+  const awaiting = AWAITING_DISBURSEMENT.reduce((t, s) => ({ n: t.n + (counts[s]?.n ?? 0), value: t.value + (counts[s]?.value ?? 0) }), { n: 0, value: 0 })
   const shown = filter === 'ALL' ? rows : rows.filter(r => r.status === filter)
   const statuses = [...new Set([...LOAN_STATUS_FILTERS.filter(s => counts[s]), ...Object.keys(counts)])]
 
@@ -131,7 +132,7 @@ export function LoanApplications() {
       {loading && !data ? <StatCardsSkeleton count={4} className="grid grid-cols-2 lg:grid-cols-4 gap-3" /> : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Tile label="Awaiting review" n={counts.PENDING?.n ?? 0} value={counts.PENDING?.value ?? 0} tone={(counts.PENDING?.n ?? 0) > 0 ? 'amber' : undefined} />
-          <Tile label="Approved, not disbursed" n={counts.APPROVED?.n ?? 0} value={counts.APPROVED?.value ?? 0} tone={(counts.APPROVED?.n ?? 0) > 0 ? 'blue' : undefined} />
+          <Tile label="Approved, not disbursed" n={awaiting.n} value={awaiting.value} tone={awaiting.n > 0 ? 'blue' : undefined} />
           <Tile label="Disbursed" n={counts.DISBURSED?.n ?? 0} value={counts.DISBURSED?.value ?? 0} />
           <Tile label="Closed" n={counts.CLOSED?.n ?? 0} value={counts.CLOSED?.value ?? 0} />
         </div>

@@ -9,13 +9,15 @@ import type { IdentityProvider } from '../../api/types'
 import { FormSkeleton } from '../ui/Skeleton'
 
 const PROVIDERS: IdentityProvider[] = ['ISW', 'NIBSS']
-const PROVIDER_LABEL: Record<IdentityProvider, string> = { ISW: 'Interswitch', NIBSS: 'NIBSS' }
+/** Face match can also run on AWS Rekognition; BVN and NIN lookups cannot. */
+const FACE_PROVIDERS: IdentityProvider[] = ['ISW', 'NIBSS', 'REKOGNITION']
+const PROVIDER_LABEL: Record<IdentityProvider, string> = { ISW: 'Interswitch', NIBSS: 'NIBSS', REKOGNITION: 'AWS Rekognition' }
 
 function ProviderToggle({
   value, options, disabled, onChange,
 }: { value: string; options: IdentityProvider[]; disabled?: boolean; onChange: (p: IdentityProvider) => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+    <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5">
       {options.map(p => (
         <button
           key={p}
@@ -111,7 +113,7 @@ export function IdentityProviderSettings() {
       control: (
         <ProviderToggle
           value={face}
-          options={PROVIDERS}
+          options={FACE_PROVIDERS}
           disabled={saving === 'face'}
           onChange={p => run('face', () => setFaceProvider(p), `Face provider switched to ${p}.`)}
         />

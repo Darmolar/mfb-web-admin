@@ -69,3 +69,12 @@ test('loan requirements are saved in the documented shape, and notes post as com
   assert.equal(calls[1].url, 'https://backend.test/api/v1/bank-admin/loans/applications/a1/comments');
   assert.deepEqual(JSON.parse(calls[1].init.body), { comment: 'Employer confirmed' });
 });
+
+// Reported 2026-11-06: Disburse vanished once the customer accepted the offer (status OFFER_ACCEPTED).
+test('an accepted offer can still be disbursed, and is labelled as such', () => {
+  assert.equal(L.loanActions('OFFER_ACCEPTED').canDisburse, true);
+  assert.equal(L.loanActions('APPROVED').canDisburse, true);
+  assert.equal(L.loanActions('OFFER_ACCEPTED').canSendOffer, false);
+  for (const s of ['PENDING', 'DISBURSED', 'ACTIVE', 'CLOSED', 'DECLINED']) assert.equal(L.loanActions(s).canDisburse, false, s);
+  assert.equal(L.loanStatus('OFFER_ACCEPTED').label, 'Offer accepted'); assert.match(L.loanStatus('OFFER_ACCEPTED').hint, /disburse/);
+});

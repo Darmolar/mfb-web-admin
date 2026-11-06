@@ -659,6 +659,20 @@ export function disburseLoan(applicationId: string, adminId: string) {
   })
 }
 
+export function getLoanSchedule(applicationId: string) {
+  return request<unknown>(`/v1/bank-admin/loans/applications/${encodeURIComponent(applicationId)}/schedule`)
+}
+/** Replaces the whole schedule (DISBURSED loans only) and notifies the customer. */
+export function uploadLoanSchedule(applicationId: string, csv: string, adminId: string) {
+  const form = new FormData()
+  form.append('file', new Blob([csv], { type: 'text/csv' }), 'repayment-schedule.csv')
+  // adminId goes once, as a request param (a second copy in the form would reach Spring as "id,id").
+  return request<unknown>(`/v1/bank-admin/loans/applications/${encodeURIComponent(applicationId)}/schedule/csv${buildQueryString({ adminId })}`, {
+    method: 'POST',
+    body: form,
+  })
+}
+
 // ──────────────────────────────────────────────
 // Reference Data
 // ──────────────────────────────────────────────

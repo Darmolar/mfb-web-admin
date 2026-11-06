@@ -85,7 +85,7 @@ export function loanPipeline(apps: LoanApp[]) {
   }
   return {
     pending: stage(s => s === 'PENDING' || s === 'PENDING_REVIEW', a => a.requested),
-    approved: stage(s => s === 'APPROVED', a => a.approved ?? a.requested),
+    approved: stage(s => s === 'APPROVED' || s === 'OFFER_ACCEPTED', a => a.approved ?? a.requested),
     disbursed: stage(s => s === 'DISBURSED', a => a.approved ?? a.requested),
     closed: stage(s => s === 'CLOSED', a => a.approved ?? a.requested),
     declined: stage(s => s === 'DECLINED' || s === 'REJECTED', a => a.requested),
