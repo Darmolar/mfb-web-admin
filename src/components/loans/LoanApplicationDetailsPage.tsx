@@ -15,6 +15,7 @@ import {
   repaymentEstimate, type CheckResult, type LoanApp, type LoanProductRecord,
 } from '../../api/loans'
 import { useApi } from '../../hooks/useApi'
+import { LoanSchedule } from './LoanSchedule'
 import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -166,6 +167,8 @@ export function LoanApplicationDetailsPage() {
           <Card icon={<ShieldAlert size={15} />} title="Eligibility & affordability" subtitle={product ? `Checked against ${product.name} rules. Advisory only.` : 'Advisory only.'}>
             <Checks checks={checks} />
           </Card>
+
+          <LoanSchedule app={app} adminId={user?.adminId ?? ''} onUploaded={setNotice} />
 
           <Card icon={<Briefcase size={15} />} title="Applicant details" subtitle="As entered on the application">
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
