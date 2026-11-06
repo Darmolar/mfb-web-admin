@@ -1107,7 +1107,7 @@ export type CardRequestDetails = {
 // Identity provider settings
 // ──────────────────────────────────────────────
 
-export type IdentityProvider = 'ISW' | 'NIBSS'
+export type IdentityProvider = 'ISW' | 'NIBSS' | 'REKOGNITION'
 
 /** Raw key/value map returned by GET /v1/bank-admin/settings/identity/providers */
 export type IdentityProviderSettings = {
