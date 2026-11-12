@@ -1,6 +1,10 @@
 // Loan repayment schedules: read the API rows, and check an admin's CSV before upload.
 //   GET  /v1/bank-admin/loans/applications/{id}/schedule
-//   POST /v1/bank-admin/loans/applications/{id}/schedule/csv  (DISBURSED loans only; replaces the schedule)
+//   POST /v1/bank-admin/loans/applications/{id}/schedule/csv  (replaces the schedule)
+// The schedule is part of the loan offer: it is uploaded once the loan is approved, the customer reviews it
+// in the app and accepts it with the offer, and from then on it is fixed.
+// Backend note (2026-11-08): the upload endpoint still accepts DISBURSED loans only (409 otherwise) until the
+// backend allows APPROVED loans; the admin already works this way and shows a clear message on that 409.
 
 export type ScheduleRow = {
   installment: number
@@ -15,10 +19,15 @@ export type ScheduleRow = {
 
 export const SCHEDULE_CSV_HEADER = 'installment_number,due_date,principal_due,interest_due,total_due'
 
-/** The upload endpoint only accepts loans in this state; it answers 409 otherwise. */
-export const canUploadSchedule = (status: string) => status === 'DISBURSED'
-/** Loans that have been paid out can have a schedule to show. */
-export const hasSchedulePhase = (status: string) => ['DISBURSED', 'ACTIVE', 'CLOSED'].includes(status)
+/** Approved, offer not yet accepted: the only time the bank sets or changes the schedule. */
+export const canUploadSchedule = (status: string, offerAccepted = false) => status === 'APPROVED' && !offerAccepted
+/** Once the customer accepts the offer, the schedule they agreed to is fixed. */
+export const scheduleLocked = (status: string, offerAccepted = false) =>
+  offerAccepted || ['OFFER_ACCEPTED', 'DISBURSED', 'ACTIVE', 'CLOSED'].includes(status)
+/** From approval on, a loan can have a schedule to show. */
+export const hasSchedulePhase = (status: string) => ['APPROVED', 'OFFER_ACCEPTED', 'DISBURSED', 'ACTIVE', 'CLOSED'].includes(status)
+/** The upload was refused because of the loan's state (the backend still only allows DISBURSED loans). */
+export const UPLOAD_NOT_ALLOWED_YET = 'The server does not accept a schedule for this loan yet. Uploading before the offer needs a backend change; the bank has been asked to allow it for approved loans.'
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : 0)
 const str = (v: unknown) => (typeof v === 'string' ? v : '')
@@ -74,7 +83,7 @@ export type ParsedSchedule = { rows: ScheduleRow[]; errors: string[]; warnings: 
  * Checks a schedule CSV the way the backend reads it (5 columns, optional header) and
  * reports every problem by line, so nothing reaches the customer half-right.
  */
-export function parseScheduleCsv(text: string, expectedPrincipal?: number | null, disbursedOn?: string): ParsedSchedule {
+export function parseScheduleCsv(text: string, expectedPrincipal?: number | null, disbursedOn?: string, today = new Date().toISOString().slice(0, 10)): ParsedSchedule {
   const errors: string[] = [], warnings: string[] = [], rows: ScheduleRow[] = []
   const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l, i) => ({ n: i + 1, cells: splitCsvLine(l) }))
     .filter(l => l.cells.some(c => c !== ''))
@@ -108,6 +117,7 @@ export function parseScheduleCsv(text: string, expectedPrincipal?: number | null
   if (byNumber.some((r, k) => k > 0 && r.dueDate <= byNumber[k - 1].dueDate)) warnings.push('Due dates are not in increasing order of instalment number.')
   const disbursedDay = (disbursedOn || '').slice(0, 10)
   if (validDate(disbursedDay) && byNumber.some(r => r.dueDate <= disbursedDay)) warnings.push(`Some due dates are on or before the disbursement date (${disbursedDay}).`)
+  else if (!validDate(disbursedDay) && byNumber.some(r => r.dueDate <= today)) warnings.push('Some due dates are today or in the past. The customer will see these dates in the offer.')
   const principal = round2(rows.reduce((s, r) => s + r.principal, 0))
   if (expectedPrincipal && rows.length && !errors.length && Math.abs(principal - expectedPrincipal) > 0.01) {
     warnings.push(`Principal adds up to ₦${principal.toLocaleString('en-NG')}, but the approved amount is ₦${expectedPrincipal.toLocaleString('en-NG')}.`)

@@ -48,6 +48,8 @@ export function LoanApplicationDetailsPage() {
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [action, setAction] = useState<'approve' | 'decline' | 'disburse' | 'offer' | null>(null)
+  // Instalments on the schedule (null while unknown). The offer letter goes out only with a schedule.
+  const [scheduleCount, setScheduleCount] = useState<number | null>(null)
 
   const { data, loading, error, refetch } = useApi(async () => {
     const [appRes, answers, products] = await Promise.all([
@@ -138,7 +140,12 @@ export function LoanApplicationDetailsPage() {
                 <Button variant="success" onClick={() => setAction('approve')}><CheckCircle2 size={15} /> Approve</Button>
               </>
             )}
-            {acts.canSendOffer && <Button variant="secondary" onClick={() => setAction('offer')}><Mail size={15} /> Send offer letter</Button>}
+            {acts.canSendOffer && (
+              <Button variant="secondary" onClick={() => setAction('offer')} disabled={!scheduleCount}
+                title={scheduleCount ? undefined : scheduleCount === 0 ? 'Upload the repayment schedule first: the customer accepts it with the offer.' : 'Checking the repayment schedule…'}>
+                <Mail size={15} /> Send offer letter
+              </Button>
+            )}
             {acts.canDisburse && <Button onClick={() => setAction('disburse')}><Banknote size={15} /> Disburse</Button>}
           </div>
         </div>
@@ -168,7 +175,7 @@ export function LoanApplicationDetailsPage() {
             <Checks checks={checks} />
           </Card>
 
-          <LoanSchedule app={app} adminId={user?.adminId ?? ''} onUploaded={setNotice} />
+          <LoanSchedule app={app} adminId={user?.adminId ?? ''} onUploaded={setNotice} onRowsChange={setScheduleCount} />
 
           <Card icon={<Briefcase size={15} />} title="Applicant details" subtitle="As entered on the application">
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
@@ -235,7 +242,7 @@ export function LoanApplicationDetailsPage() {
         </div>
       </div>
 
-      <DecisionModals app={app} product={product} action={action} onClose={() => setAction(null)} onDone={done} adminId={user?.adminId ?? ''} />
+      <DecisionModals app={app} product={product} action={action} onClose={() => setAction(null)} onDone={done} adminId={user?.adminId ?? ''} scheduleCount={scheduleCount} />
     </div>
   )
 }
@@ -365,9 +372,9 @@ function Notes({ appId, comments, loading, error, onAdded }: { appId: string; co
   )
 }
 
-function DecisionModals({ app, product, action, onClose, onDone, adminId }: {
+function DecisionModals({ app, product, action, onClose, onDone, adminId, scheduleCount }: {
   app: LoanApp; product: LoanProductRecord | null; action: 'approve' | 'decline' | 'disburse' | 'offer' | null
-  onClose: () => void; onDone: (msg: string) => void; adminId: string
+  onClose: () => void; onDone: (msg: string) => void; adminId: string; scheduleCount: number | null
 }) {
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
@@ -472,10 +479,13 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId }: {
       </Modal>
 
       <Modal open={action === 'offer'} onClose={onClose} title="Send offer letter" width="max-w-lg"
-        footer={footer('Send offer letter', 'primary', !!email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim()), () =>
+        footer={footer('Send offer letter', 'primary', !scheduleCount || (!!email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())), () =>
           run(() => sendLoanOfferLetter(app.id, { recipientEmail: email.trim() || null }), `Offer letter sent to ${email.trim() || app.email || app.customer?.email || 'the customer'}.`))}>
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">The customer receives the loan offer to accept in the app.</p>
+          <p className="text-sm text-slate-600">
+            The customer receives the loan offer with its {scheduleCount ? `${scheduleCount}-instalment ` : ''}repayment schedule, and reviews and accepts both in the app.
+            Once they accept, the schedule can no longer be changed.
+          </p>
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-slate-600">Send to a different email (optional)</span>
             <input className={inputCls} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={app.email || app.customer?.email || 'customer@example.com'} />

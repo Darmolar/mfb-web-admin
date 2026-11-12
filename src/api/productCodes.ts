@@ -12,3 +12,19 @@ export function validateProductCodes(input: CbaProductCodes): CbaProductCodes {
   }
   return { individualProductCode, corporateProductCode }
 }
+
+const pick = (map: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const v = map[key]
+    if (typeof v === 'string' || typeof v === 'number') return String(v).trim()
+  }
+  return ''
+}
+
+/** Reads a flattened settings map; missing codes come back as ''. */
+export function readProductCodes(map: Record<string, unknown>): CbaProductCodes {
+  return {
+    individualProductCode: pick(map, ['cba.product.individual', 'individualProductCode']),
+    corporateProductCode: pick(map, ['cba.product.corporate', 'corporateProductCode']),
+  }
+}

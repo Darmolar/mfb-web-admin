@@ -1229,6 +1229,10 @@ export type VasCashbackUpdate = {
 
 export type GlAccounts = {
   loanGlAccount?: string
+  /** Credit account for savings top-ups (gl.account.savings). Empty → backend uses savings.account.pool. */
+  savingsGlAccount?: string
+  /** Source account debited when savings interest is credited (savings.account.pool). */
+  savingsPoolAccount?: string
   cardFeeAccount?: string
   nipFeeAccount?: string
 }

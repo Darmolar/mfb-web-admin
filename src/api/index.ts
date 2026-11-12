@@ -1,5 +1,5 @@
 import { parseKycProcesses, parseKycRequirements } from './kycConfiguration'
-import { validateProductCodes, type CbaProductCodes } from './productCodes'
+import { readProductCodes, validateProductCodes, type CbaProductCodes } from './productCodes'
 import { ADMIN_API_KEY, API_BASE_URL, PUBLIC_API_KEY } from './config'
 import type {
   IdentityProvider, IdentityProviderSettings, LookupProvider, SystemSettings,
@@ -1206,16 +1206,88 @@ export function setVasEntry(key: string, value: string) {
 }
 
 // --- GL accounts ---
-export function getGlAccounts() {
-  return request<GlAccounts>('/v1/bank-admin/settings/gl')
+// GL account settings.
+//   GET /v1/bank-admin/settings/gl           → settings keyed like "gl.account.savings" (camelCase also accepted)
+//   PUT /v1/bank-admin/settings/gl/accounts  → { loanGlAccount?, cardFeeAccount?, nipFeeAccount?, savingsGlAccount?, savingsPoolAccount? }
+//   PUT /v1/bank-admin/settings/gl/entry/{key} → { value } for any single gl.* / nip.* key (used for the NIP fee tiers)
+// Savings top-ups credit gl.account.savings; when it is empty the backend falls back to savings.account.pool.
+export type GlField = keyof GlAccounts
+
+/** Keys each field may arrive under. The first is the PUT name; dotted keys are the stored setting names. */
+export const GL_KEYS: Record<GlField, string[]> = {
+  loanGlAccount: ['loanGlAccount', 'gl.account.loan', 'LOAN_GL'],
+  savingsGlAccount: ['savingsGlAccount', 'gl.account.savings', 'SAVINGS_GL'],
+  savingsPoolAccount: ['savingsPoolAccount', 'savings.account.pool'],
+  cardFeeAccount: ['cardFeeAccount', 'gl.account.card_fee', 'gl.account.card.fee', 'gl.account.cardfee', 'gl.account.card-fee', 'CARD_FEE_GL'],
+  nipFeeAccount: ['nipFeeAccount', 'gl.account.nip.fee', 'gl.account.nipfee', 'gl.account.nip-fee', 'NIP_FEE_GL'],
+}
+
+const text = (v: unknown) => (v == null ? undefined : typeof v === 'string' || typeof v === 'number' ? String(v).trim() : undefined)
+
+/** Flattens { key: value }, [{ key, value }] or { settings: … } into one key → value map. */
+function entries(body: unknown): Record<string, unknown> {
+  const b = body as any
+  if (Array.isArray(b)) return Object.fromEntries(b.filter(e => e && typeof e.key === 'string').map(e => [e.key, e.value]))
+  if (b && typeof b === 'object') {
+    if (Array.isArray(b.settings) || (b.settings && typeof b.settings === 'object')) return { ...entries(b.settings), ...b }
+    return b
+  }
+  return {}
+}
+
+export function readGlAccounts(body: unknown): GlAccounts {
+  const map = entries(body)
+  const out: GlAccounts = {}
+  for (const field of Object.keys(GL_KEYS) as GlField[]) {
+    for (const key of GL_KEYS[field]) {
+      const v = text(map[key])
+      if (v) { out[field] = v; break }
+    }
+  }
+  return out
+}
+
+/** NIP fee tiers, keyed by their stored setting names. */
+export const NIP_FEE_KEYS = ['nip.fee.threshold', 'nip.fee.below_threshold', 'nip.fee.above_threshold'] as const
+export type NipFeeKey = typeof NIP_FEE_KEYS[number]
+export type NipFees = Partial<Record<NipFeeKey, string>>
+
+export function readNipFees(body: unknown): NipFees {
+  const map = entries(body)
+  const out: NipFees = {}
+  for (const key of NIP_FEE_KEYS) {
+    const v = text(map[key])
+    if (v) out[key] = v
+  }
+  return out
+}
+
+export async function getGlAccounts() {
+  const res = await request<unknown>('/v1/bank-admin/settings/gl')
+  return { ...res, data: readGlAccounts(res.data), nipFees: readNipFees(res.data) }
+}
+
+/** Set any single gl.* or nip.* key directly, e.g. nip.fee.threshold. */
+export function setGlEntry(key: string, value: string) {
+  if (!key.startsWith('gl.') && !key.startsWith('nip.')) throw new Error('GL config keys must start with gl. or nip.')
+  return request<unknown>(`/v1/bank-admin/settings/gl/entry/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ value }),
+  })
 }
 
 /** All fields optional — only what is sent gets updated. */
 export function updateGlAccounts(payload: GlAccounts) {
-  return request<GlAccounts>('/v1/bank-admin/settings/gl', {
+  return request<unknown>('/v1/bank-admin/settings/gl/accounts', {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
+}
+
+/** Current codes from GET /settings/cba (keys cba.product.individual / cba.product.corporate). */
+export async function getCbaProductCodes() {
+  const res = await request<unknown>('/v1/bank-admin/settings/cba')
+  return readProductCodes(entries(res.data))
 }
 
 /** Credentials and X-Admin-Username are supplied by the trusted API proxy. */
@@ -1334,13 +1406,33 @@ function parseNotificationChannel(raw: unknown): NotificationSetting[] {
   })
 }
 
-/** Accepts the ApiResponse envelope or a bare `{ sms, email }` object; unknown shapes yield empty lists. */
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/** A flat map of notification types: every value is a row carrying an `enabled` flag. */
+const isTypeMap = (v: unknown): v is Record<string, unknown> =>
+  isRecord(v) && Object.keys(v).length > 0 && Object.values(v).every(row => isRecord(row) && 'enabled' in row)
+
+/**
+ * Accepts, bare or inside the ApiResponse envelope:
+ * - `{ sms: {...}, email: {...} }` (optionally under `channels`), or
+ * - a flat type map `{ transaction: { enabled, template, placeholders }, ... }`, which is what staging
+ *   returns. Its rows go to the channel named by a row's `channel` field, else to SMS (template rows are SMS).
+ * Unknown shapes yield empty lists.
+ */
 export function parseNotificationSettings(raw: unknown): NotificationSettings {
-  let root = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-  if (!('sms' in root) && !('email' in root) && root.data && typeof root.data === 'object') {
-    root = root.data as Record<string, unknown>
+  let root: Record<string, unknown> = isRecord(raw) ? raw : {}
+  if (!('sms' in root) && !('email' in root) && isRecord(root.data)) root = root.data
+  if (isRecord(root.channels)) root = root.channels
+  if ('sms' in root || 'email' in root) {
+    return { sms: parseNotificationChannel(root.sms), email: parseNotificationChannel(root.email) }
   }
-  return { sms: parseNotificationChannel(root.sms), email: parseNotificationChannel(root.email) }
+  if (!isTypeMap(root)) return { sms: [], email: [] }
+  const byChannel: Record<NotificationChannel, Record<string, unknown>> = { sms: {}, email: {} }
+  for (const [type, row] of Object.entries(root)) {
+    const channel = String((row as Record<string, unknown>).channel ?? '').toLowerCase() === 'email' ? 'email' : 'sms'
+    byChannel[channel][type] = row
+  }
+  return { sms: parseNotificationChannel(byChannel.sms), email: parseNotificationChannel(byChannel.email) }
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
