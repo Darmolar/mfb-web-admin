@@ -5,17 +5,17 @@ import { useApi } from '../../hooks/useApi'
 import {
   getIdentityProviderSettings, setBvnProvider, setNinProvider, setFaceProvider,
 } from '../../api'
-import type { IdentityProvider } from '../../api/types'
+import type { IdentityProvider, LookupProvider } from '../../api/types'
 import { FormSkeleton } from '../ui/Skeleton'
 
-const PROVIDERS: IdentityProvider[] = ['ISW', 'NIBSS']
+const PROVIDERS: LookupProvider[] = ['ISW', 'NIBSS']
 /** Face match can also run on AWS Rekognition; BVN and NIN lookups cannot. */
 const FACE_PROVIDERS: IdentityProvider[] = ['ISW', 'NIBSS', 'REKOGNITION']
 const PROVIDER_LABEL: Record<IdentityProvider, string> = { ISW: 'Interswitch', NIBSS: 'NIBSS', REKOGNITION: 'AWS Rekognition' }
 
-function ProviderToggle({
+function ProviderToggle<P extends IdentityProvider>({
   value, options, disabled, onChange,
-}: { value: string; options: IdentityProvider[]; disabled?: boolean; onChange: (p: IdentityProvider) => void }) {
+}: { value: string; options: P[]; disabled?: boolean; onChange: (p: P) => void }) {
   return (
     <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5">
       {options.map(p => (
@@ -24,6 +24,7 @@ function ProviderToggle({
           type="button"
           disabled={disabled}
           onClick={() => onChange(p)}
+          aria-pressed={value === p}
           className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer disabled:cursor-not-allowed ${
             value === p ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
           }`}

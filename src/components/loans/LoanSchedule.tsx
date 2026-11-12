@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CalendarClock, Download, Loader2, Upload } from 'lucide-react'
 import moment from 'moment'
-import { getLoanSchedule, uploadLoanSchedule } from '../../api'
+import { ApiError, getLoanSchedule, uploadLoanSchedule } from '../../api'
 import {
-  canUploadSchedule, hasSchedulePhase, parseScheduleCsv, readSchedule, scheduleTemplate, scheduleToCsv, scheduleTotals,
+  UPLOAD_NOT_ALLOWED_YET, canUploadSchedule, hasSchedulePhase, parseScheduleCsv, scheduleLocked, readSchedule, scheduleTemplate, scheduleToCsv, scheduleTotals,
   type ParsedSchedule, type ScheduleRow,
 } from '../../api/loanSchedule'
 import type { LoanApp } from '../../api/loans'
@@ -19,12 +19,21 @@ const ROW_STATUS: Record<string, { label: string; variant: 'green' | 'amber' | '
   OVERDUE: { label: 'Overdue', variant: 'red' },
 }
 
-export function LoanSchedule({ app, adminId, onUploaded }: { app: LoanApp; adminId: string; onUploaded: (msg: string) => void }) {
+export function LoanSchedule({ app, adminId, onUploaded, onRowsChange }: {
+  app: LoanApp; adminId: string; onUploaded: (msg: string) => void
+  /** Number of instalments once known (null while loading or failed), so the page can gate the offer letter. */
+  onRowsChange?: (count: number | null) => void
+}) {
   const [open, setOpen] = useState(false)
   const schedule = useApi(async () => (hasSchedulePhase(app.status) ? readSchedule((await getLoanSchedule(app.id)).data) : []), [app.id, app.status])
   const rows = schedule.data ?? []
   const totals = scheduleTotals(rows)
-  const uploadable = canUploadSchedule(app.status)
+  const uploadable = canUploadSchedule(app.status, app.offerAccepted)
+  const locked = scheduleLocked(app.status, app.offerAccepted)
+  // Never offer an upload while the current schedule is unknown: it would skip the replace warning.
+  const scheduleKnown = !!schedule.data && !schedule.loading && !schedule.error
+  const count = scheduleKnown ? rows.length : null
+  useEffect(() => { onRowsChange?.(count) }, [count, onRowsChange])
 
   return (
     <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
@@ -33,18 +42,21 @@ export function LoanSchedule({ app, adminId, onUploaded }: { app: LoanApp; admin
           <span className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 shrink-0"><CalendarClock size={15} /></span>
           <div>
             <h2 className="text-sm font-bold text-slate-700">Repayment schedule</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">What the customer sees and repays against in the app</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {locked ? 'Accepted by the customer with the offer. It can no longer be changed.' : 'Part of the loan offer: the customer reviews it in the app before accepting.'}
+            </p>
           </div>
         </div>
-        {uploadable && (
-          <Button size="sm" variant={rows.length ? 'secondary' : 'primary'} onClick={() => setOpen(true)}>
+        {uploadable && scheduleKnown && (
+          <Button size="sm" variant={rows.length ? 'secondary' : 'primary'} onClick={() => setOpen(true)} disabled={!adminId}
+            title={adminId ? undefined : 'Sign in again to upload: your admin ID is missing.'}>
             <Upload size={14} /> {rows.length ? 'Replace schedule' : 'Upload schedule'}
           </Button>
         )}
       </div>
 
       {!hasSchedulePhase(app.status) ? (
-        <p className="text-sm text-slate-400">A schedule can be uploaded once the loan is disbursed.</p>
+        <p className="text-sm text-slate-400">Approve the loan first. The schedule is then uploaded and sent with the offer letter.</p>
       ) : schedule.loading && !schedule.data ? (
         <p className="text-sm text-slate-400 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading schedule…</p>
       ) : schedule.error ? (
@@ -52,7 +64,11 @@ export function LoanSchedule({ app, adminId, onUploaded }: { app: LoanApp; admin
       ) : rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/60 px-4 py-4 text-sm text-amber-800">
           <p className="font-semibold">No schedule uploaded yet</p>
-          <p className="text-xs mt-1">The customer sees no instalments until one is uploaded.{uploadable ? ' Upload the schedule from core banking to show them what to repay and when.' : ''}</p>
+          <p className="text-xs mt-1">
+            {uploadable
+              ? 'Upload the schedule before sending the offer letter, so the customer sees what to repay and when before accepting.'
+              : 'The customer sees no instalments until one is uploaded.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -134,14 +150,15 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
     setErr(null); setParsed(null); setFileName(f?.name ?? '')
     if (!f) return
     if (f.size > 1_000_000) { setErr('That file is too large for a repayment schedule (over 1 MB).'); return }
-    setParsed(parseScheduleCsv(await f.text(), principal))
+    setParsed(parseScheduleCsv(await f.text(), principal, app.disbursementDate))
   }
 
   const template = () => {
     const rows = scheduleTemplate(principal, app.tenureMonths || 1, app.monthlyRatePercent ?? 0, app.disbursementDate)
     const url = URL.createObjectURL(new Blob([scheduleToCsv(rows)], { type: 'text/csv' }))
     const a = Object.assign(document.createElement('a'), { href: url, download: `schedule-${app.number || app.id}.csv` })
-    a.click(); URL.revokeObjectURL(url)
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   const upload = async () => {
@@ -151,9 +168,10 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
       await uploadLoanSchedule(app.id, scheduleToCsv(parsed.rows), adminId)
       const next = parsed.rows[0]
       reset()
-      onDone(`Schedule uploaded: ${parsed.rows.length} instalments. ${app.customer?.name ?? 'The customer'} was notified; next payment ${naira(next.total)} due ${day(next.dueDate)}.`)
+      onDone(`Schedule uploaded: ${parsed.rows.length} instalments, first payment ${naira(next.total)} due ${day(next.dueDate)}. Send the offer letter so ${app.customer?.name ?? 'the customer'} can review and accept it.`)
     } catch (e) {
-      setErr(e instanceof Error && e.message ? e.message : 'The schedule could not be uploaded. Please try again.')
+      setErr(e instanceof ApiError && e.status === 409 ? UPLOAD_NOT_ALLOWED_YET
+        : e instanceof Error && e.message ? e.message : 'The schedule could not be uploaded. Please try again.')
     } finally { setBusy(false) }
   }
 
@@ -166,7 +184,7 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
             <Button variant="secondary" className="sm:flex-1 justify-center" onClick={close} disabled={busy}>Cancel</Button>
             <Button className="sm:flex-1 justify-center" onClick={upload} disabled={busy || !ready}>
-              {busy && <Loader2 size={14} className="animate-spin" />} {replacing ? 'Replace and notify customer' : 'Upload and notify customer'}
+              {busy && <Loader2 size={14} className="animate-spin" />} {replacing ? 'Replace schedule' : 'Upload schedule'}
             </Button>
           </div>
         </div>
@@ -177,13 +195,13 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
         </p>
         {replacing && (
           <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" /> This deletes the current schedule and replaces it with the file. Payments already recorded against instalments may no longer line up.
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" /> This deletes the current schedule and replaces it with the file. If the offer letter was already sent, send it again so the customer reviews the new schedule.
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-white">
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-white focus-within:ring-2 focus-within:ring-slate-400">
             <Upload size={14} /> Choose CSV file
-            <input ref={input} id="schedule-csv" type="file" accept=".csv,text/csv" className="sr-only" onChange={e => void pick(e.target.files?.[0])} disabled={busy} />
+            <input ref={input} id="schedule-csv" type="file" accept=".csv,text/csv" className="sr-only" onChange={e => { const f = e.target.files?.[0]; e.currentTarget.value = ''; void pick(f) }} disabled={busy} />
           </label>
           <button type="button" onClick={template} className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:underline cursor-pointer">
             <Download size={13} /> Download a template for this loan
@@ -192,14 +210,14 @@ function UploadModal({ open, app, adminId, replacing, onClose, onDone }: {
         </div>
 
         {parsed && parsed.errors.length > 0 && (
-          <div className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 space-y-1">
+          <div role="alert" className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 space-y-1">
             <p className="font-semibold">Fix these in the file, then choose it again:</p>
             <ul className="list-disc pl-4 space-y-0.5">{parsed.errors.slice(0, 8).map(e => <li key={e}>{e}</li>)}</ul>
             {parsed.errors.length > 8 && <p>…and {parsed.errors.length - 8} more.</p>}
           </div>
         )}
         {parsed && !parsed.errors.length && parsed.warnings.length > 0 && (
-          <ul className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-0.5">
+          <ul role="status" className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-0.5">
             {parsed.warnings.map(w => <li key={w} className="flex gap-2"><AlertTriangle size={13} className="shrink-0 mt-0.5" /> {w}</li>)}
           </ul>
         )}

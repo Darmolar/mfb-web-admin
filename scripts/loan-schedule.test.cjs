@@ -48,12 +48,54 @@ test('API rows are read in instalment order and totals use what is unpaid', () =
   assert.deepEqual(plain(S.readSchedule(null)), []);
 });
 
-test('upload is offered only for DISBURSED loans; the template matches the flat-rate maths', () => {
-  assert.equal(S.canUploadSchedule('DISBURSED'), true);
-  for (const s of ['APPROVED', 'OFFER_ACCEPTED', 'ACTIVE', 'CLOSED']) assert.equal(S.canUploadSchedule(s), false, s);
+test('the schedule goes with the offer: upload while approved, fixed once the customer accepts; template maths', () => {
+  assert.equal(S.canUploadSchedule('APPROVED'), true);
+  assert.equal(S.canUploadSchedule('APPROVED', true), false, 'offer already accepted');
+  for (const s of ['PENDING', 'OFFER_ACCEPTED', 'DISBURSED', 'ACTIVE', 'CLOSED', 'DECLINED']) assert.equal(S.canUploadSchedule(s), false, s);
+  assert.equal(S.scheduleLocked('APPROVED'), false); assert.equal(S.scheduleLocked('APPROVED', true), true);
+  for (const s of ['OFFER_ACCEPTED', 'DISBURSED', 'ACTIVE', 'CLOSED']) assert.equal(S.scheduleLocked(s), true, s);
+  for (const s of ['APPROVED', 'OFFER_ACCEPTED', 'DISBURSED']) assert.equal(S.hasSchedulePhase(s), true, s);
+  assert.equal(S.hasSchedulePhase('PENDING'), false);
   const rows = S.scheduleTemplate(100000, 6, 4, '2026-01-31T09:00:00');
   assert.equal(rows.length, 6); assert.equal(rows[0].dueDate, '2026-02-28'); assert.equal(rows[0].interest, 4000);
   assert.equal(Math.round(rows.reduce((s, r) => s + r.principal, 0) * 100) / 100, 100000);
   assert.equal(Math.round(rows.reduce((s, r) => s + r.total, 0) * 100) / 100, 124000);
   assert.deepEqual(plain(S.parseScheduleCsv(S.scheduleToCsv(rows), 100000).errors), []);
+});
+
+// Review fixes 2026-11-06.
+test('spreadsheet exports parse: quoted thousands, trailing empty columns; only a named header is skipped', () => {
+  const r = S.parseScheduleCsv('1,2026-12-01,"10000.00",2500.00,12500.00,,\n2,2027-01-01,10000.00,2500.00,12500.00\n', 20000);
+  assert.deepEqual(plain(r.errors), []); assert.equal(r.rows.length, 2);
+  assert.deepEqual(plain(S.splitCsvLine('1,"a, b","say ""hi""",x')), ['1', 'a, b', 'say "hi"', 'x']);
+  const bad = S.parseScheduleCsv('#1,2026-12-01,1,1,2\n2,2027-01-01,1,1,2\n');
+  assert.match(bad.errors[0], /^Line 1: instalment number/, 'a bad first row is reported, not dropped as a header');
+  assert.match(S.parseScheduleCsv('1,2026-12-01,0,0,0\n').errors[0], /more than 0/);
+  assert.match(S.parseScheduleCsv('1,2026-12-01,"10,000.00",0,10000\n').errors[0], /thousand separators/);
+  const early = S.parseScheduleCsv('1,2026-11-01,10,0,10\n', null, '2026-11-06T10:00:00');
+  assert.match(early.warnings.join(' '), /on or before the disbursement date/);
+});
+
+test('upload is only offered once the current schedule is known, and re-picking a file works', () => {
+  const src = fs.readFileSync('src/components/loans/LoanSchedule.tsx', 'utf8');
+  assert.match(src, /uploadable && scheduleKnown &&/);
+  assert.match(src, /e\.currentTarget\.value = ''/);
+  const page = fs.readFileSync('src/components/loans/LoanApplicationDetailsPage.tsx', 'utf8');
+  assert.match(page, /!app\.offerAccepted && app\.status !== 'OFFER_ACCEPTED'/);
+  const types = fs.readFileSync('src/api/types.ts', 'utf8');
+  assert.match(types, /LookupProvider = 'ISW' \| 'NIBSS'/);
+  assert.match(fs.readFileSync('src/api/index.ts', 'utf8'), /setBvnProvider\(provider: LookupProvider\)/);
+});
+
+test('an offer-stage schedule with past due dates is flagged, since there is no payout date yet', () => {
+  const csv = '1,2026-11-01,10000,2500,12500\n2,2026-12-01,10000,2500,12500';
+  assert.match(S.parseScheduleCsv(csv, 20000, '', '2026-11-08').warnings.join(' '), /in the past/);
+  assert.deepEqual(plain(S.parseScheduleCsv('1,2026-12-01,10000,2500,12500\n2,2027-01-01,10000,2500,12500', 20000, '', '2026-11-08').warnings), []);
+});
+test('the offer letter needs a schedule, and a 409 on upload explains the backend rule', () => {
+  const page = fs.readFileSync('src/components/loans/LoanApplicationDetailsPage.tsx', 'utf8');
+  assert.match(page, /disabled=\{!scheduleCount\}/);
+  assert.match(page, /onRowsChange=\{setScheduleCount\}/);
+  const comp = fs.readFileSync('src/components/loans/LoanSchedule.tsx', 'utf8');
+  assert.match(comp, /e\.status === 409 \? UPLOAD_NOT_ALLOWED_YET/);
 });

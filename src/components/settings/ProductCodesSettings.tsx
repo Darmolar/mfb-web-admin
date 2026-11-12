@@ -1,18 +1,23 @@
 import { useRef, useState } from 'react'
-import { Loader2, Save } from 'lucide-react'
+import { Loader2, RefreshCw, Save } from 'lucide-react'
 import { Button } from '../ui/Button'
-import { updateCbaProductCodes } from '../../api'
+import { useApi } from '../../hooks/useApi'
+import { getCbaProductCodes, updateCbaProductCodes } from '../../api'
 import { validateProductCodes, type CbaProductCodes } from '../../api/productCodes'
+import { FormSkeleton } from '../ui/Skeleton'
 
-// Operator-provided proposal, not a claim about the saved backend configuration.
-const PROPOSED_CODES: CbaProductCodes = {
-  individualProductCode: '208',
-  corporateProductCode: '103',
-}
+const EMPTY: CbaProductCodes = { individualProductCode: '', corporateProductCode: '' }
 
 export function ProductCodesSettings() {
-  const [draft, setDraft] = useState<CbaProductCodes>(PROPOSED_CODES)
+  const { data, loading, error, refetch } = useApi(getCbaProductCodes, [])
+  const [draft, setDraft] = useState<CbaProductCodes>(EMPTY)
   const [saved, setSaved] = useState<CbaProductCodes | null>(null)
+  // Re-sync the form whenever the server's current codes arrive.
+  const [syncedData, setSyncedData] = useState(data)
+  if (data !== syncedData) {
+    setSyncedData(data)
+    if (data) { setDraft(data); setSaved(data) }
+  }
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -36,7 +41,7 @@ export function ProductCodesSettings() {
       await updateCbaProductCodes(payload)
       setSaved(payload)
       setDraft(payload)
-      setMessage({ ok: true, text: 'Product-code update accepted.' })
+      setMessage({ ok: true, text: 'Product codes saved.' })
     } catch (error) {
       setMessage({ ok: false, text: error instanceof Error ? error.message : 'Unable to update product codes.' })
     } finally {
@@ -45,15 +50,24 @@ export function ProductCodesSettings() {
     }
   }
 
+  if (loading && !data) return <FormSkeleton fields={2} />
+
   return (
     <form onSubmit={save} className="space-y-4">
-      <div>
-        <h3 className="text-sm font-bold text-slate-800">CBA Product Codes</h3>
-        <p className="text-xs text-slate-500 mt-1">Configure the core banking products used for individual and corporate accounts.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800">CBA Product Codes</h3>
+          <p className="text-xs text-slate-500 mt-1">Core banking products used when opening individual savings accounts and corporate accounts.</p>
+        </div>
+        <Button type="button" variant="secondary" size="sm" onClick={refetch} disabled={saving || loading}>
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+        </Button>
       </div>
-      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
-        {saved && unchanged ? 'These values were submitted successfully in this session.' : 'The fields contain proposed values, not the current saved configuration. Review both codes before saving.'}
-      </p>
+      {error && (
+        <p role="alert" className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
+          Couldn’t load the current codes ({error}). Anything you save will replace whatever is configured.
+        </p>
+      )}
       {message && (
         <p role={message.ok ? 'status' : 'alert'} className={`text-sm rounded-xl p-3 ${message.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
           {message.text}
@@ -61,8 +75,8 @@ export function ProductCodesSettings() {
       )}
       <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-5">
         {([
-          ['individualProductCode', 'Individual product code'],
-          ['corporateProductCode', 'Corporate product code'],
+          ['individualProductCode', 'Individual product code (cba.product.individual)'],
+          ['corporateProductCode', 'Corporate product code (cba.product.corporate)'],
         ] as const).map(([field, label]) => (
           <div key={field} className="flex flex-wrap items-center justify-between gap-3">
             <label htmlFor={field} className="text-sm font-semibold text-slate-700">{label}</label>
