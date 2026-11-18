@@ -153,6 +153,9 @@ export type LoanApp = {
   occupation: string
   sourceOfFunds: string
   educationLevel: string
+  /** Why the customer wants the loan, and their own words about it (mobile sends `purpose` and `details.purposeDescription`). */
+  purpose: string
+  purposeDescription: string
   email: string
   customer: LoanCustomer | null
   adminNotes: string
@@ -180,6 +183,13 @@ function readLoanCustomer(c: unknown): LoanCustomer | null {
   }
 }
 
+/** The application's free-form `details`, which may arrive as an object or as a JSON string. */
+function readDetails(d: unknown): Record<string, unknown> {
+  if (isObj(d)) return d
+  if (typeof d === 'string') { try { const parsed: unknown = JSON.parse(d); return isObj(parsed) ? parsed : {} } catch { return {} } }
+  return {}
+}
+
 export function readLoanApp(v: unknown): LoanApp | null {
   if (!isObj(v) || !str(v.id)) return null
   return {
@@ -196,6 +206,8 @@ export function readLoanApp(v: unknown): LoanApp | null {
     annualIncome: num(v.annualIncome),
     employmentType: str(v.employmentType).toUpperCase(),
     occupation: str(v.occupation), sourceOfFunds: str(v.sourceOfFunds), educationLevel: str(v.educationLevel), email: str(v.email),
+    purpose: str(v.purpose) || str(v.loanPurpose),
+    purposeDescription: str(v.purposeDescription) || str(readDetails(v.details).purposeDescription),
     customer: readLoanCustomer(v.customer),
     adminNotes: str(v.adminNotes), declineReason: str(v.declineReason),
     reviewedAt: str(v.reviewedAt), reviewedBy: str(v.reviewedByAdminId),
@@ -308,5 +320,16 @@ export function loanActions(status: string) {
     canDecide: status === 'PENDING' || status === 'PENDING_REVIEW',
     canDisburse: AWAITING_DISBURSEMENT.includes(status),
     canSendOffer: status === 'APPROVED',
+    /** The core banking loan account can be set or corrected until the loan is paid out. */
+    canSetLoanAccount: AWAITING_DISBURSEMENT.includes(status),
   }
+}
+
+/**
+ * A core banking loan account number as staff type it: trimmed, no inner spaces. Undefined when it is not one.
+ * The bank's exact format is not documented, so only letters, digits and dashes, 6–30 long, are accepted.
+ */
+export function cleanLoanAccount(value: string): string | undefined {
+  const v = value.trim()
+  return /^[A-Za-z0-9-]{6,30}$/.test(v) ? v : undefined
 }

@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  AlertTriangle, ArrowLeft, Banknote, Briefcase, Check, CheckCircle2, CircleHelp, Clock, FileText, Loader2, Mail,
+  AlertTriangle, ArrowLeft, Banknote, Briefcase, Check, CheckCircle2, CircleHelp, Clock, FileText, Hash, Loader2, Mail,
   MessageSquare, ShieldAlert, UserRound, X as XIcon, XCircle,
 } from 'lucide-react'
 import moment from 'moment'
 import {
   addLoanComment, approveLoanApplication, declineLoanApplication, disburseLoan, getLoanApplicationDetails,
-  getLoanApplicationRequirements, getLoanComments, getLoanProductRequirements, getLoanProducts, sendLoanOfferLetter,
+  getLoanApplicationRequirements, getLoanComments, getLoanProductRequirements, getLoanProducts, sendLoanOfferLetter, setLoanAccount,
 } from '../../api'
 import { readRequirements } from '../../api/cards'
 import {
-  DECLINE_REASONS, appRepayment, eligibilityChecks, employmentLabel, loanActions, loanStatus, readLoanApp, readLoanProducts,
+  DECLINE_REASONS, appRepayment, cleanLoanAccount, eligibilityChecks, employmentLabel, loanActions, loanStatus, readLoanApp, readLoanProducts,
   repaymentEstimate, type CheckResult, type LoanApp, type LoanProductRecord,
 } from '../../api/loans'
 import { useApi } from '../../hooks/useApi'
@@ -47,7 +47,7 @@ export function LoanApplicationDetailsPage() {
   const { user } = useAuth()
   const [reload, setReload] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
-  const [action, setAction] = useState<'approve' | 'decline' | 'disburse' | 'offer' | null>(null)
+  const [action, setAction] = useState<LoanAction | null>(null)
   // Instalments on the schedule (null while unknown). The offer letter goes out only with a schedule.
   const [scheduleCount, setScheduleCount] = useState<number | null>(null)
 
@@ -146,7 +146,17 @@ export function LoanApplicationDetailsPage() {
                 <Mail size={15} /> Send offer letter
               </Button>
             )}
-            {acts.canDisburse && <Button onClick={() => setAction('disburse')}><Banknote size={15} /> Disburse</Button>}
+            {acts.canSetLoanAccount && (
+              <Button variant="secondary" onClick={() => setAction('loanAccount')}>
+                <Hash size={15} /> {app.coreLoanAccount ? 'Change loan account' : 'Set loan account'}
+              </Button>
+            )}
+            {acts.canDisburse && (
+              <Button onClick={() => setAction('disburse')} disabled={!app.coreLoanAccount}
+                title={app.coreLoanAccount ? undefined : 'Set the core banking loan account number first: the bank refuses to pay out without it.'}>
+                <Banknote size={15} /> Disburse
+              </Button>
+            )}
           </div>
         </div>
         <LoanSteps app={app} />
@@ -169,6 +179,17 @@ export function LoanApplicationDetailsPage() {
         <Figure label="Total repayment" value={naira(rep?.total)} sub={rep ? `${naira(rep.interest)} interest` : undefined} />
       </div>
 
+      {acts.canSetLoanAccount && (
+        <div className={`text-xs rounded-xl px-4 py-3 border flex items-center justify-between gap-4 ${app.coreLoanAccount ? 'bg-slate-50 border-slate-200 text-slate-600' : 'bg-amber-50 border-amber-100 text-amber-800'}`}>
+          <span>
+            {app.coreLoanAccount
+              ? <>Core banking loan account: <span className="font-mono font-semibold">{app.coreLoanAccount}</span></>
+              : 'No core banking loan account yet. Set it before disbursing; the bank refuses to pay out without it.'}
+          </span>
+          <button onClick={() => setAction('loanAccount')} className="font-semibold underline cursor-pointer shrink-0">{app.coreLoanAccount ? 'Change' : 'Set now'}</button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-6">
           <Card icon={<ShieldAlert size={15} />} title="Eligibility & affordability" subtitle={product ? `Checked against ${product.name} rules. Advisory only.` : 'Advisory only.'}>
@@ -179,6 +200,10 @@ export function LoanApplicationDetailsPage() {
 
           <Card icon={<Briefcase size={15} />} title="Applicant details" subtitle="As entered on the application">
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+              <Item className="sm:col-span-2" label="Loan purpose" value={<>
+                {app.purpose || (app.purposeDescription ? 'Not given' : '—')}
+                {app.purposeDescription && <span className="block mt-1 font-normal text-slate-600 whitespace-pre-line">{app.purposeDescription}</span>}
+              </>} />
               <Item label="Employment" value={employmentLabel(app.employmentType)} />
               <Item label="Occupation" value={app.occupation || '—'} />
               <Item label="Monthly income" value={naira(app.monthlyIncome)} />
@@ -372,14 +397,17 @@ function Notes({ appId, comments, loading, error, onAdded }: { appId: string; co
   )
 }
 
+type LoanAction = 'approve' | 'decline' | 'disburse' | 'offer' | 'loanAccount'
+
 function DecisionModals({ app, product, action, onClose, onDone, adminId, scheduleCount }: {
-  app: LoanApp; product: LoanProductRecord | null; action: 'approve' | 'decline' | 'disburse' | 'offer' | null
+  app: LoanApp; product: LoanProductRecord | null; action: LoanAction | null
   onClose: () => void; onDone: (msg: string) => void; adminId: string; scheduleCount: number | null
 }) {
   const [amount, setAmount] = useState('')
   const [notes, setNotes] = useState('')
   const [reason, setReason] = useState('')
   const [email, setEmail] = useState('')
+  const [loanAccount, setLoanAccountInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [openedFor, setOpenedFor] = useState<string | null>(null)
@@ -387,7 +415,7 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
   // Reset the form each time a decision window opens (approved amount starts at the requested amount).
   if (action && action !== openedFor) {
     setOpenedFor(action)
-    setAmount(String(app.requested)); setNotes(''); setReason(''); setEmail(''); setErr(null)
+    setAmount(String(app.requested)); setNotes(''); setReason(''); setEmail(''); setLoanAccountInput(app.coreLoanAccount || ''); setErr(null)
   }
   if (!action && openedFor) setOpenedFor(null)
 
@@ -396,6 +424,10 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
   const amountError = !Number.isFinite(value) || value <= 0 ? 'Enter an amount greater than 0.'
     : value > app.requested ? `Cannot approve more than the ${naira(app.requested)} requested.`
       : product?.minAmount && value < product.minAmount ? `Below the product minimum of ${naira(product.minAmount)}.` : null
+
+  // Optional at approval (the bank may open the core loan account later); required in its own window.
+  const cleanAccount = cleanLoanAccount(loanAccount)
+  const accountError = loanAccount.trim() && !cleanAccount ? 'Use 6–30 letters, digits or dashes, with no spaces.' : null
 
   async function run(fn: () => Promise<unknown>, msg: string) {
     setBusy(true); setErr(null)
@@ -417,8 +449,8 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
   return (
     <>
       <Modal open={action === 'approve'} onClose={onClose} title="Approve loan" width="max-w-lg"
-        footer={footer(`Approve ${est ? naira(value) : ''}`, 'success', !!amountError || !notes.trim(), () =>
-          run(() => approveLoanApplication(app.id, { adminId, approvedAmount: Number(value.toFixed(2)), notes: notes.trim() }), `Approved ${naira(value)} for ${app.customer?.name ?? 'the customer'}.`))}>
+        footer={footer(`Approve ${est ? naira(value) : ''}`, 'success', !!amountError || !notes.trim() || !!accountError, () =>
+          run(() => approveLoanApplication(app.id, { adminId, approvedAmount: Number(value.toFixed(2)), notes: notes.trim(), ...(cleanAccount ? { loanAccountNumber: cleanAccount } : {}) }), `Approved ${naira(value)} for ${app.customer?.name ?? 'the customer'}.`))}>
         <div className="space-y-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-slate-600">Approved amount</span>
@@ -439,6 +471,29 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
             <span className="text-xs font-semibold text-slate-600">Decision notes <span className="text-red-400">*</span></span>
             <textarea className={`${inputCls} resize-none`} rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Meets income and account-age rules; employer confirmed." />
           </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-slate-600">Core banking loan account number <span className="font-normal text-slate-400">(optional now, required to disburse)</span></span>
+            <input className={`${inputCls} font-mono`} value={loanAccount} onChange={e => setLoanAccountInput(e.target.value)} placeholder="From the core banking system" autoComplete="off" />
+            {accountError && <span className="block text-[11px] text-red-600">{accountError}</span>}
+          </label>
+        </div>
+      </Modal>
+
+      <Modal open={action === 'loanAccount'} onClose={onClose} title={app.coreLoanAccount ? 'Change loan account' : 'Set loan account'} width="max-w-lg"
+        footer={footer('Save loan account', 'primary', !cleanAccount || cleanAccount === app.coreLoanAccount, () =>
+          run(() => setLoanAccount(app.id, { adminId, loanAccountNumber: cleanAccount! }), `Loan account ${cleanAccount} saved for ${app.number}.`))}>
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            The loan account opened for this loan in the core banking system. The bank pays the loan out through it, so it must be set before disbursing.
+          </p>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-semibold text-slate-600">Core banking loan account number <span className="text-red-400">*</span></span>
+            <input className={`${inputCls} font-mono text-base`} value={loanAccount} onChange={e => setLoanAccountInput(e.target.value)} placeholder="e.g. 3000012345" autoComplete="off" autoFocus />
+            {accountError && <span className="block text-[11px] text-red-600">{accountError}</span>}
+          </label>
+          <p className="text-xs text-slate-500">
+            {app.customer?.name ?? 'Customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span> · {naira(app.approved ?? app.requested)}
+          </p>
         </div>
       </Modal>
 
@@ -461,13 +516,14 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
       </Modal>
 
       <Modal open={action === 'disburse'} onClose={onClose} title="Disburse loan" width="max-w-lg"
-        footer={footer(`Disburse ${naira(app.approved ?? app.requested)}`, 'primary', false, () =>
+        footer={footer(`Disburse ${naira(app.approved ?? app.requested)}`, 'primary', !app.coreLoanAccount, () =>
           run(() => disburseLoan(app.id, adminId), `${naira(app.approved ?? app.requested)} disbursed to ${app.customer?.name ?? 'the customer'}.`))}>
         <div className="space-y-4">
           <div className="rounded-xl bg-slate-50 px-4 py-4 text-center">
             <p className="text-xs text-slate-500">Paying out</p>
             <p className="text-3xl font-black text-slate-800">{naira(app.approved ?? app.requested)}</p>
             <p className="text-xs text-slate-500 mt-1">to {app.customer?.name ?? 'customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span></p>
+            <p className="text-xs text-slate-500">Loan account <span className="font-mono">{app.coreLoanAccount || 'not set'}</span></p>
           </div>
           {!app.offerAccepted && app.status !== 'OFFER_ACCEPTED' && (
             <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
@@ -523,8 +579,8 @@ function MiniFigure({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-slate-50 px-2 py-2.5"><p className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</p><p className="text-sm font-bold text-slate-800 tabular-nums">{value}</p></div>
 }
 
-function Item({ label, value }: { label: string; value: React.ReactNode }) {
-  return <div className="min-w-0"><dt className="text-[11px] text-slate-400">{label}</dt><dd className="text-sm font-semibold text-slate-700 break-words">{value}</dd></div>
+function Item({ label, value, className = '' }: { label: string; value: React.ReactNode; className?: string }) {
+  return <div className={`min-w-0 ${className}`}><dt className="text-[11px] text-slate-400">{label}</dt><dd className="text-sm font-semibold text-slate-700 break-words">{value}</dd></div>
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {

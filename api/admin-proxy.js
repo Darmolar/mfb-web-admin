@@ -77,6 +77,8 @@ export default async function handler(req, res) {
   const multipart = /^multipart\/form-data(?:;|$)/i.test(contentType)
   const uploadRoute = (req.method === 'PUT' && path === 'settings/bank-stamp')
     || (req.method === 'POST' && /^identity\/[A-Za-z0-9_-]+\/image$/.test(path) && !path.startsWith('identity/image-requests/'))
+    // Repayment schedule CSV (uploadLoanSchedule).
+    || (req.method === 'POST' && /^loans\/applications\/[A-Za-z0-9_-]+\/schedule\/csv$/.test(path))
   if (multipart && (!uploadRoute || !/boundary=/i.test(contentType))) {
     return fail(415, 'Unsupported upload request.', 'INVALID_UPLOAD')
   }
