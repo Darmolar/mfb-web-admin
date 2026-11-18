@@ -17,3 +17,10 @@ test('development proxy injects server credentials only on the local authenticat
  function run(address,authorization,path='/api/v1/bank-admin/settings/cba/product-codes'){const headers={};handler({removeHeader:key=>{delete headers[key]},setHeader:(key,value)=>{headers[key]=value}},{method:'PUT',url:path,socket:{remoteAddress:address},headers:{authorization}});return headers;}
  assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Username'],'test-admin');assert.equal(run('127.0.0.1','Bearer test')['X-Admin-Key'],'test-only-key');assert.deepEqual(run('192.168.1.10','Bearer test'),{});assert.deepEqual(run('127.0.0.1',undefined),{});assert.deepEqual(run('127.0.0.1','Bearer test','/api/v1/unrelated'),{});assert.equal(run('127.0.0.1','Bearer test','/api/v1/bank-admin/complaints')['X-Admin-Key'],'test-only-key');
 });
+test('product codes cannot be saved until the live codes have loaded (review 2026-11-12)',()=>{
+ const s=fs.readFileSync('src/components/settings/ProductCodesSettings.tsx','utf8');
+ assert.ok(/const loaded = saved !== null/.test(s),'loaded means the server codes arrived');
+ assert.ok(s.includes('if (inFlight.current || !loaded || unchanged) return'),'submit is refused before a load');
+ assert.ok(s.includes('disabled={saving || !loaded || unchanged}'),'button disabled before a load');
+ assert.ok(!s.includes('Anything you save will replace whatever is configured'),'old warning that still allowed saving is gone');
+});

@@ -21,12 +21,14 @@ export function ProductCodesSettings() {
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  // Saving without the live codes would overwrite them with whatever is typed here, so it waits for a successful load.
+  const loaded = saved !== null
   const unchanged = saved?.individualProductCode === draft.individualProductCode.trim()
     && saved?.corporateProductCode === draft.corporateProductCode.trim()
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (inFlight.current || unchanged) return
+    if (inFlight.current || !loaded || unchanged) return
     let payload: CbaProductCodes
     try {
       payload = validateProductCodes(draft)
@@ -63,9 +65,9 @@ export function ProductCodesSettings() {
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
         </Button>
       </div>
-      {error && (
+      {!loaded && (
         <p role="alert" className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
-          Couldn’t load the current codes ({error}). Anything you save will replace whatever is configured.
+          Couldn’t load the current codes{error ? ` (${error})` : ''}. Saving is turned off so the live codes aren’t overwritten. Press Refresh to try again.
         </p>
       )}
       {message && (
@@ -86,7 +88,7 @@ export function ProductCodesSettings() {
               inputMode="numeric"
               pattern="[0-9]+"
               required
-              disabled={saving}
+              disabled={saving || !loaded}
               value={draft[field]}
               onChange={event => { setDraft(previous => ({ ...previous, [field]: event.target.value })); setMessage(null) }}
               className="w-48 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
@@ -94,7 +96,7 @@ export function ProductCodesSettings() {
           </div>
         ))}
         <div className="flex justify-end">
-          <Button type="submit" disabled={saving || unchanged}>
+          <Button type="submit" disabled={saving || !loaded || unchanged}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {saving ? 'Saving…' : 'Save product codes'}
           </Button>
