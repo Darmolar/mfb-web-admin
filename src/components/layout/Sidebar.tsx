@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ShieldCheck, Users, Building2, ArrowLeftRight,
   ScrollText, Scale, LogOut, UserCog,
-  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Fingerprint, Settings, ScanFace
+  AlertTriangle, Landmark, PiggyBank, ServerCog, CreditCard, Settings, ScanFace
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -35,7 +35,8 @@ const navItems: NavItem[] = [
   { id: 'loans', label: 'Loan Management', icon: <Landmark size={18} /> },
   { id: 'savings', label: 'Savings Management', icon: <PiggyBank size={18} /> },
   { id: 'cards', label: 'Card Management', icon: <CreditCard size={18} /> },
-  { id: 'cardfusion', label: 'CardFusion', icon: <Fingerprint size={18} /> },
+  // CardFusion is hidden from the menu at the bank's request (16 Nov 2026); the page stays reachable at /cardfusion.
+  // { id: 'cardfusion', label: 'CardFusion', icon: <Fingerprint size={18} /> },  (re-add Fingerprint to the lucide import)
   { id: 'queue', label: 'Job Queue', icon: <ServerCog size={18} /> },
   // { id: 'reference', label: 'Reference Data', icon: <Database size={18} /> },
   { id: 'complaints', label: 'Complaints', icon: <ScrollText size={18} /> },
