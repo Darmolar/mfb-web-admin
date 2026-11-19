@@ -82,11 +82,7 @@ export function TwoFactorPage() {
           </button>
         </form>
 
-        <div className="flex justify-between mt-5">
-          <button className="text-xs text-blue-500 hover:text-blue-700 font-semibold cursor-pointer">
-            Resend Code
-          </button>
-        </div>
+        {/* Resend Code hidden: the backend has no admin MFA resend endpoint and the button did nothing (19 Nov 2026). */}
       </div>
     </div>
   )

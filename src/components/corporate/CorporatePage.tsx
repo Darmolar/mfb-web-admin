@@ -12,6 +12,9 @@ import { EntityProfile } from './profile/EntityProfile'
 import { useAuth } from '../../context/AuthContext'
 import moment from 'moment'
 
+/** Flip to true when the backend's towns lookup is fixed. */
+const CAN_CREATE_CORPORATE = false
+
 const EMPTY_FORM: Omit<CreateCorporateRequest, 'adminId'> = {
   companyName: '', rcNumber: '', tin: '', sector: '', sectorCode: '',
   address: '', stateCode: '', townCode: '', phone: '', email: '',
@@ -148,9 +151,13 @@ export function CorporatePage() {
           <h3 className="text-sm font-bold text-slate-600">Corporate Directory</h3>
           <div className="flex items-center gap-3">
             <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer"><RefreshCw size={13} /></button>
-            <Button size="sm" onClick={() => { setShowCreate(true); setCreateError(null); setForm(EMPTY_FORM) }}>
-              <Plus size={13} /> New Corporate Profile
-            </Button>
+            {/* Hidden until reference/towns works: it answers 502 (CoreBanking.GetTownCodes) for every
+                state, and town is required, so a corporate cannot be created (19 Nov 2026). */}
+            {CAN_CREATE_CORPORATE && (
+              <Button size="sm" onClick={() => { setShowCreate(true); setCreateError(null); setForm(EMPTY_FORM) }}>
+                <Plus size={13} /> New Corporate Profile
+              </Button>
+            )}
           </div>
         </div>
 
