@@ -1258,8 +1258,8 @@ function entries(body: unknown): Record<string, unknown> {
   return {}
 }
 
-export function readGlAccounts(body: unknown): GlAccounts {
-  const map = entries(body)
+/** GL account codes from a flattened settings map (see entries). */
+export function readGlAccounts(map: Record<string, unknown>): GlAccounts {
   const out: GlAccounts = {}
   for (const field of Object.keys(GL_KEYS) as GlField[]) {
     for (const key of GL_KEYS[field]) {
@@ -1275,8 +1275,8 @@ export const NIP_FEE_KEYS = ['nip.fee.threshold', 'nip.fee.below_threshold', 'ni
 export type NipFeeKey = typeof NIP_FEE_KEYS[number]
 export type NipFees = Partial<Record<NipFeeKey, string>>
 
-export function readNipFees(body: unknown): NipFees {
-  const map = entries(body)
+/** NIP fee tiers from a flattened settings map (see entries). */
+export function readNipFees(map: Record<string, unknown>): NipFees {
   const out: NipFees = {}
   for (const key of NIP_FEE_KEYS) {
     const v = text(map[key])
@@ -1287,7 +1287,8 @@ export function readNipFees(body: unknown): NipFees {
 
 export async function getGlAccounts() {
   const res = await request<unknown>('/v1/bank-admin/settings/gl')
-  return { ...res, data: readGlAccounts(res.data), nipFees: readNipFees(res.data) }
+  const map = entries(res.data)
+  return { ...res, data: readGlAccounts(map), nipFees: readNipFees(map) }
 }
 
 /** Set any single gl.* or nip.* key directly, e.g. nip.fee.threshold. */

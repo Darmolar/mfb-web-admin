@@ -3,8 +3,9 @@
 //   POST /v1/bank-admin/loans/applications/{id}/schedule/csv  (replaces the schedule)
 // The schedule is part of the loan offer: it is uploaded once the loan is approved, the customer reviews it
 // in the app and accepts it with the offer, and from then on it is fixed.
-// Backend note (2026-11-08): the upload endpoint still accepts DISBURSED loans only (409 otherwise) until the
-// backend allows APPROVED loans; the admin already works this way and shows a clear message on that 409.
+// Backend note: on 2026-11-08 the upload endpoint accepted DISBURSED loans only (409 otherwise). By 2026-11-17 it
+// accepted APPROVED loans (LN27E61B59C4 got its 6-row schedule, then the offer was accepted; checked 2026-11-19).
+// UPLOAD_NOT_ALLOWED_YET is still shown if a 409 comes back.
 
 export type ScheduleRow = {
   installment: number

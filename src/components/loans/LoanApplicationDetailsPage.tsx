@@ -471,11 +471,8 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
             <span className="text-xs font-semibold text-slate-600">Decision notes <span className="text-red-400">*</span></span>
             <textarea className={`${inputCls} resize-none`} rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Meets income and account-age rules; employer confirmed." />
           </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-slate-600">Core banking loan account number <span className="font-normal text-slate-400">(optional now, required to disburse)</span></span>
-            <input className={`${inputCls} font-mono`} value={loanAccount} onChange={e => setLoanAccountInput(e.target.value)} placeholder="From the core banking system" autoComplete="off" />
-            {accountError && <span className="block text-[11px] text-red-600">{accountError}</span>}
-          </label>
+          <LoanAccountField value={loanAccount} onChange={setLoanAccountInput} error={accountError} placeholder="From the core banking system"
+            hint={<span className="font-normal text-slate-400">(optional now, required to disburse)</span>} />
         </div>
       </Modal>
 
@@ -486,11 +483,8 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
           <p className="text-sm text-slate-600">
             The loan account opened for this loan in the core banking system. The bank pays the loan out through it, so it must be set before disbursing.
           </p>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-semibold text-slate-600">Core banking loan account number <span className="text-red-400">*</span></span>
-            <input className={`${inputCls} font-mono text-base`} value={loanAccount} onChange={e => setLoanAccountInput(e.target.value)} placeholder="e.g. 3000012345" autoComplete="off" autoFocus />
-            {accountError && <span className="block text-[11px] text-red-600">{accountError}</span>}
-          </label>
+          <LoanAccountField value={loanAccount} onChange={setLoanAccountInput} error={accountError} placeholder="e.g. 3000012345" large autoFocus
+            hint={<span className="text-red-400">*</span>} />
           <p className="text-xs text-slate-500">
             {app.customer?.name ?? 'Customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span> · {naira(app.approved ?? app.requested)}
           </p>
@@ -550,6 +544,19 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
         </div>
       </Modal>
     </>
+  )
+}
+
+/** The core banking loan account number input, shared by the approve and set-account windows. */
+function LoanAccountField({ value, onChange, error, hint, placeholder, large, autoFocus }: {
+  value: string; onChange: (v: string) => void; error: string | null; hint: React.ReactNode; placeholder: string; large?: boolean; autoFocus?: boolean
+}) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-xs font-semibold text-slate-600">Core banking loan account number {hint}</span>
+      <input className={`${inputCls} font-mono${large ? ' text-base' : ''}`} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} autoComplete="off" autoFocus={autoFocus} />
+      {error && <span className="block text-[11px] text-red-600">{error}</span>}
+    </label>
   )
 }
 
