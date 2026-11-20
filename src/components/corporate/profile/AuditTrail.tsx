@@ -1,6 +1,4 @@
-import { Download } from 'lucide-react'
 import { Badge } from '../../ui/Badge'
-import { Button } from '../../ui/Button'
 import { DataTable, type ColumnDef } from '../../ui/DataTable'
 import { useApi } from '../../../hooks/useApi'
 import { getCorporateAuditTrail } from '../../../api'
@@ -68,9 +66,7 @@ export function AuditTrail({ corporateId }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" size="sm"><Download size={13} /> Export CSV</Button>
-      </div>
+      {/* Export CSV hidden: there is no export API and the button did nothing (19 Nov 2026). */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Institutional Audit Trail</h4>

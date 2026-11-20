@@ -640,7 +640,8 @@ export function getLoanApplications(params: { status?: string; page?: number; si
   const qs = buildQueryString({ status: params.status, page: params.page ?? 0, size: params.size ?? 100 })
   return request<PaginatedData<LoanApplication>>(`/v1/bank-admin/loans/applications${qs}`)
 }
-export function approveLoanApplication(applicationId: string, payload: { adminId: string; approvedAmount: number; notes: string }) {
+/** loanAccountNumber: the loan's account in core banking (backend changelog, 17 Nov 2026); optional at approval. */
+export function approveLoanApplication(applicationId: string, payload: { adminId: string; approvedAmount: number; notes: string; loanAccountNumber?: string }) {
   return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/approve`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -649,6 +650,16 @@ export function approveLoanApplication(applicationId: string, payload: { adminId
 export function declineLoanApplication(applicationId: string, payload: { adminId: string; declineReason: string; notes: string }) {
   return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/decline`, {
     method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+/**
+ * Sets the core banking loan account on an approved (or offer-accepted) loan. Disbursement is refused until it is
+ * set: "Loan account number must be set at approval before disbursement." (backend, 17 Nov 2026).
+ */
+export function setLoanAccount(applicationId: string, payload: { adminId: string; loanAccountNumber: string }) {
+  return request<unknown>(`/v1/bank-admin/loans/applications/${encodeURIComponent(applicationId)}/loan-account`, {
+    method: 'PATCH',
     body: JSON.stringify(payload),
   })
 }
@@ -676,17 +687,29 @@ export function uploadLoanSchedule(applicationId: string, csv: string, adminId: 
 // ──────────────────────────────────────────────
 // Reference Data
 // ──────────────────────────────────────────────
+/**
+ * Reference lists in the paged shape the pages read. Since 17 Nov 2026 the backend answers countries, states and
+ * sectors with a plain list ("static fallback" while core banking is down) instead of a page; both are accepted.
+ */
+export function asReferencePage<T>(res: ApiResponse<PaginatedData<T> | T[]>): ApiResponse<PaginatedData<T>> {
+  const d = res.data as PaginatedData<T> | T[] | null | undefined
+  if (Array.isArray(d)) return { ...res, data: { content: d, totalElements: d.length, totalPages: 1, number: 0, size: d.length } }
+  if (d && Array.isArray(d.content)) return res as ApiResponse<PaginatedData<T>>
+  return { ...res, data: { content: [], totalElements: 0, totalPages: 0, number: 0, size: 0 } }
+}
 export function getCountries(page = 0) {
-  return request<PaginatedData<ReferenceCountry>>(`/v1/bank-admin/reference/countries?page=${page}&size=100`)
+  return request<PaginatedData<ReferenceCountry> | ReferenceCountry[]>(`/v1/bank-admin/reference/countries?page=${page}&size=100`).then(asReferencePage)
 }
 export function getStates(page = 0) {
-  return request<PaginatedData<ReferenceState>>(`/v1/bank-admin/reference/states?page=${page}&size=100`)
+  return request<PaginatedData<ReferenceState> | ReferenceState[]>(`/v1/bank-admin/reference/states?page=${page}&size=100`).then(asReferencePage)
 }
-export function getTowns(page = 0) {
-  return request<PaginatedData<ReferenceTown>>(`/v1/bank-admin/reference/towns?page=${page}&size=100`)
+/** Towns of one state: the backend requires stateCode ("Missing required parameter: stateCode", 17 Nov 2026). */
+export function getTowns(page = 0, stateCode?: string) {
+  const state = stateCode ? `&stateCode=${encodeURIComponent(stateCode)}` : ''
+  return request<PaginatedData<ReferenceTown> | ReferenceTown[]>(`/v1/bank-admin/reference/towns?page=${page}&size=100${state}`).then(asReferencePage)
 }
 export function getSectors(page = 0) {
-  return request<PaginatedData<ReferenceSector>>(`/v1/bank-admin/reference/sectors?page=${page}&size=100`)
+  return request<PaginatedData<ReferenceSector> | ReferenceSector[]>(`/v1/bank-admin/reference/sectors?page=${page}&size=100`).then(asReferencePage)
 }
 
 // ──────────────────────────────────────────────
@@ -1235,8 +1258,8 @@ function entries(body: unknown): Record<string, unknown> {
   return {}
 }
 
-export function readGlAccounts(body: unknown): GlAccounts {
-  const map = entries(body)
+/** GL account codes from a flattened settings map (see entries). */
+export function readGlAccounts(map: Record<string, unknown>): GlAccounts {
   const out: GlAccounts = {}
   for (const field of Object.keys(GL_KEYS) as GlField[]) {
     for (const key of GL_KEYS[field]) {
@@ -1252,8 +1275,8 @@ export const NIP_FEE_KEYS = ['nip.fee.threshold', 'nip.fee.below_threshold', 'ni
 export type NipFeeKey = typeof NIP_FEE_KEYS[number]
 export type NipFees = Partial<Record<NipFeeKey, string>>
 
-export function readNipFees(body: unknown): NipFees {
-  const map = entries(body)
+/** NIP fee tiers from a flattened settings map (see entries). */
+export function readNipFees(map: Record<string, unknown>): NipFees {
   const out: NipFees = {}
   for (const key of NIP_FEE_KEYS) {
     const v = text(map[key])
@@ -1264,7 +1287,8 @@ export function readNipFees(body: unknown): NipFees {
 
 export async function getGlAccounts() {
   const res = await request<unknown>('/v1/bank-admin/settings/gl')
-  return { ...res, data: readGlAccounts(res.data), nipFees: readNipFees(res.data) }
+  const map = entries(res.data)
+  return { ...res, data: readGlAccounts(map), nipFees: readNipFees(map) }
 }
 
 /** Set any single gl.* or nip.* key directly, e.g. nip.fee.threshold. */

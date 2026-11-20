@@ -12,6 +12,9 @@ import { EntityProfile } from './profile/EntityProfile'
 import { useAuth } from '../../context/AuthContext'
 import moment from 'moment'
 
+/** Flip to true when the backend's towns lookup is fixed. */
+const CAN_CREATE_CORPORATE = false
+
 const EMPTY_FORM: Omit<CreateCorporateRequest, 'adminId'> = {
   companyName: '', rcNumber: '', tin: '', sector: '', sectorCode: '',
   address: '', stateCode: '', townCode: '', phone: '', email: '',
@@ -33,7 +36,12 @@ export function CorporatePage() {
   )
 
   const { data: statesRes } = useApi(() => allPages(page => getStates(page)), [])
-  const { data: townsRes } = useApi(() => allPages(page => getTowns(page)), [])
+  // Towns are fetched per state (the backend requires stateCode); nothing until a state is chosen.
+  const townsApi = useApi(
+    () => (form.stateCode ? allPages(page => getTowns(page, form.stateCode)) : Promise.resolve(null)),
+    [form.stateCode],
+  )
+  const townsRes = townsApi.data
   const { data: sectorsRes } = useApi(() => allPages(page => getSectors(page)), [])
 
   const officers = useApi(() => allPages(page => getAdminUsers({ page, size: 100, status: 'ACTIVE' })), [])
@@ -45,7 +53,8 @@ export function CorporatePage() {
   const towns = apiTowns
   const sectors = apiSectors
   const admins = officers.data?.content ?? []
-  const referenceReady = states.length > 0 && towns.length > 0 && sectors.length > 0 && admins.length > 0
+  // Towns are not required up front: they load once a state is picked.
+  const referenceReady = states.length > 0 && sectors.length > 0 && admins.length > 0
 
 
   if (selectedId) return <EntityProfile corporateId={selectedId} onBack={() => setSelectedId(null)} />
@@ -129,7 +138,7 @@ export function CorporatePage() {
 
   return (
     <>
-      {!referenceReady && <p role="status" className="text-amber-700 text-sm">Corporate creation is unavailable until states, towns, sectors and account officers have loaded. {officers.error}</p>}
+      {!referenceReady && <p role="status" className="text-amber-700 text-sm">Corporate creation is unavailable until states, sectors and account officers have loaded. {officers.error}</p>}
       {notification && (
         <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
           notification.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'
@@ -142,9 +151,13 @@ export function CorporatePage() {
           <h3 className="text-sm font-bold text-slate-600">Corporate Directory</h3>
           <div className="flex items-center gap-3">
             <button onClick={refetch} className="text-slate-300 hover:text-slate-500 cursor-pointer"><RefreshCw size={13} /></button>
-            <Button size="sm" onClick={() => { setShowCreate(true); setCreateError(null); setForm(EMPTY_FORM) }}>
-              <Plus size={13} /> New Corporate Profile
-            </Button>
+            {/* Hidden until reference/towns works: it answers 502 (CoreBanking.GetTownCodes) for every
+                state, and town is required, so a corporate cannot be created (19 Nov 2026). */}
+            {CAN_CREATE_CORPORATE && (
+              <Button size="sm" onClick={() => { setShowCreate(true); setCreateError(null); setForm(EMPTY_FORM) }}>
+                <Plus size={13} /> New Corporate Profile
+              </Button>
+            )}
           </div>
         </div>
 
@@ -222,10 +235,16 @@ export function CorporatePage() {
 
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Town <span className="text-red-400">*</span></label>
-              <select className={inputCls} value={form.townCode} onChange={e => handleField('townCode', e.target.value)} required disabled={!form.stateCode}>
-                <option value="">Select Town</option>
-                {towns.filter((t: any) => t.stateCode === form.stateCode).map((t: any) => <option key={t.code} value={t.code}>{t.name}</option>)}
+              <select className={inputCls} value={form.townCode} onChange={e => handleField('townCode', e.target.value)} required disabled={!form.stateCode || townsApi.loading}>
+                <option value="">{!form.stateCode ? 'Select a state first' : townsApi.loading ? 'Loading towns…' : 'Select Town'}</option>
+                {towns.filter((t: any) => !t.stateCode || t.stateCode === form.stateCode).map((t: any) => <option key={t.code} value={t.code}>{t.name}</option>)}
               </select>
+              {form.stateCode && townsApi.error && (
+                <p role="alert" className="text-[11px] text-red-600">
+                  Towns could not be loaded from core banking: {townsApi.error}{' '}
+                  <button type="button" className="underline font-semibold cursor-pointer" onClick={() => townsApi.refetch()}>Retry</button>
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">

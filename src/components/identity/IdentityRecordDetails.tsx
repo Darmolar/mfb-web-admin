@@ -116,7 +116,6 @@ export function IdentityRecordDetails() {
     ['Full name', record.fullName],
     ['Identity type', IDENTITY_TYPE_LABELS[record.idType] ?? record.idType],
     ['Identity number', record.idNumber || '—'],
-    ['Customer ID', record.customerId ?? 'Not linked to a customer'],
     ['Verified on', record.verifiedAt ? moment(record.verifiedAt).format('DD MMM YYYY, HH:mm') : '—'],
     ['Last updated', record.updatedAt ? moment(record.updatedAt).format('DD MMM YYYY, HH:mm') : '—'],
     ['Provider', record.provider ?? '—'],

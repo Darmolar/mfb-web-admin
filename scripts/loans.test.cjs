@@ -78,3 +78,13 @@ test('an accepted offer can still be disbursed, and is labelled as such', () => 
   for (const s of ['PENDING', 'DISBURSED', 'ACTIVE', 'CLOSED', 'DECLINED']) assert.equal(L.loanActions(s).canDisburse, false, s);
   assert.equal(L.loanStatus('OFFER_ACCEPTED').label, 'Offer accepted'); assert.match(L.loanStatus('OFFER_ACCEPTED').hint, /disburse/);
 });
+
+test('loan purpose and the customer\'s description reach the admin view (review 2026-11-12)', () => {
+  const a = L.readLoanApp({ ...app, purpose: 'Business Investment', details: { purposeDescription: 'Restock my shop' } });
+  assert.equal(a.purpose, 'Business Investment'); assert.equal(a.purposeDescription, 'Restock my shop');
+  assert.equal(L.readLoanApp({ ...app, details: '{"purposeDescription":"From a JSON string"}' }).purposeDescription, 'From a JSON string');
+  assert.equal(L.readLoanApp({ ...app, details: 'not json' }).purposeDescription, '');
+  const none = L.readLoanApp(app); assert.equal(none.purpose, ''); assert.equal(none.purposeDescription, '');
+  const page = fs.readFileSync('src/components/loans/LoanApplicationDetailsPage.tsx', 'utf8');
+  assert.ok(page.includes('label="Loan purpose"') && page.includes('app.purposeDescription'));
+});

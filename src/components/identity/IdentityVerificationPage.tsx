@@ -53,13 +53,6 @@ export function IdentityVerificationPage() {
       cell: r => <Badge label={IDENTITY_TYPE_LABELS[r.idType] ?? r.idType ?? '—'} variant="blue" />,
     },
     {
-      header: 'Customer ID',
-      accessorKey: 'customerId',
-      cell: r => r.customerId
-        ? <span className="text-[11px] font-mono text-slate-500">{r.customerId}</span>
-        : <span className="text-xs text-slate-300">Not linked</span>,
-    },
-    {
       header: 'Photo',
       accessorKey: 'hasImage',
       cell: r => r.hasImage
