@@ -126,6 +126,9 @@ export function SavingsProducts() {
             {p.allowPartialWithdrawal ? 'Partial withdrawals allowed' : 'No partial withdrawals'}
           </p>
           <p className="text-slate-400">Lock-in: {lockinLabel(p)}</p>
+          <p className="text-slate-400">
+            {p.allowEarlyBreak ? `Early cash out: ${p.earlyBreakPenaltyPercent ?? 0}% fee` : 'No early cash out'}
+          </p>
         </div>
       ),
     },
@@ -256,6 +259,20 @@ export function SavingsProducts() {
                     </button>
                   ))}
                 </div>
+              </Field>
+              <Field label="Early cash out" hint="Customers can cash out the whole plan before maturity from the app.">
+                <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+                  {[[true, 'Allowed'], [false, 'Not allowed']].map(([v, l]) => (
+                    <button key={String(v)} type="button" onClick={() => set('allowEarlyBreak', v as boolean)}
+                      className={`flex-1 px-2 py-1.5 rounded-md text-xs font-semibold cursor-pointer ${form.allowEarlyBreak === v ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}>
+                      {l as string}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Early cash out fee (%)" hint="Charged on the plan balance and shown to the customer before they confirm.">
+                <input className={inputCls} inputMode="decimal" value={form.earlyBreakPenaltyPercent} disabled={!form.allowEarlyBreak}
+                  onChange={e => set('earlyBreakPenaltyPercent', e.target.value)} />
               </Field>
             </div>
           </Section>

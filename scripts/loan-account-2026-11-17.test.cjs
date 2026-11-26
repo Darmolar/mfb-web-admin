@@ -45,7 +45,7 @@ test('the page offers Set/Change loan account, and Disburse waits for it', () =>
   const src = fs.readFileSync('src/components/loans/LoanApplicationDetailsPage.tsx', 'utf8');
   assert.ok(src.includes("{app.coreLoanAccount ? 'Change loan account' : 'Set loan account'}"));
   assert.ok(src.includes("<Button onClick={() => setAction('disburse')} disabled={!app.coreLoanAccount}"), 'Disburse button disabled without it');
-  assert.ok(src.includes("footer={footer(`Disburse ${naira(app.approved ?? app.requested)}`, 'primary', !app.coreLoanAccount"), 'and in the window');
+  assert.ok(src.includes("footer={footer('Mark as disbursed', 'primary', !app.coreLoanAccount"), 'and in the window'); // label changed 26 Nov
   assert.ok(src.includes('run(() => setLoanAccount(app.id, { adminId, loanAccountNumber: cleanAccount! })'));
   assert.ok(src.includes("...(cleanAccount ? { loanAccountNumber: cleanAccount } : {})"), 'optional on approve, sent only when filled');
 });

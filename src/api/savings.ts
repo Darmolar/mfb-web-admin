@@ -34,6 +34,9 @@ export type SavingsProductRecord = {
   lockinType: string
   minimumBalance: number | null
   allowPartialWithdrawal: boolean
+  /** Customers may cash out before maturity (mobile "Cash Out"), paying earlyBreakPenaltyPercent of the balance. */
+  allowEarlyBreak: boolean
+  earlyBreakPenaltyPercent: number | null
   active: boolean
   /** Every field as returned, so an edit can send back what the form doesn't show. */
   raw: Obj
@@ -59,6 +62,8 @@ export function readSavingsProducts(body: unknown): SavingsProductRecord[] {
     lockinType: str(p.lockinType) || 'days',
     minimumBalance: num(p.minimumBalance),
     allowPartialWithdrawal: p.allowPartialWithdrawal === true,
+    allowEarlyBreak: p.allowEarlyBreak === true,
+    earlyBreakPenaltyPercent: num(p.earlyBreakPenaltyPercent),
     active: p.active === true || str(p.status).toUpperCase() === 'ACTIVE',
     raw: p,
   })).filter(p => p.id)
@@ -68,13 +73,15 @@ export type SavingsProductForm = {
   code: string; name: string; description: string
   minAmount: string; maxAmount: string; annualRatePercent: string; minDurationDays: string; maxDurationDays: string
   compoundingPeriod: string; interestPostingPeriodType: string; interestCalculationType: string; minimumBalanceForInterestCalculation: string
-  lockinPeriod: string; lockinType: string; minimumBalance: string; allowPartialWithdrawal: boolean; active: boolean
+  lockinPeriod: string; lockinType: string; minimumBalance: string; allowPartialWithdrawal: boolean
+  allowEarlyBreak: boolean; earlyBreakPenaltyPercent: string; active: boolean
 }
 
 export const EMPTY_SAVINGS_FORM: SavingsProductForm = {
   code: '', name: '', description: '', minAmount: '100', maxAmount: '', annualRatePercent: '', minDurationDays: '30', maxDurationDays: '',
   compoundingPeriod: 'monthly', interestPostingPeriodType: 'monthly', interestCalculationType: 'daily_balance', minimumBalanceForInterestCalculation: '0',
-  lockinPeriod: '0', lockinType: 'days', minimumBalance: '0', allowPartialWithdrawal: true, active: false,
+  lockinPeriod: '0', lockinType: 'days', minimumBalance: '0', allowPartialWithdrawal: true,
+  allowEarlyBreak: false, earlyBreakPenaltyPercent: '5', active: false,
 }
 
 const s = (n: number | null) => (n === null ? '' : String(n))
@@ -87,7 +94,8 @@ export function savingsProductToForm(p: SavingsProductRecord): SavingsProductFor
     compoundingPeriod: p.compoundingPeriod, interestPostingPeriodType: p.interestPostingPeriodType, interestCalculationType: p.interestCalculationType,
     minimumBalanceForInterestCalculation: s(p.minimumBalanceForInterestCalculation),
     lockinPeriod: s(p.lockinPeriod), lockinType: p.lockinType, minimumBalance: s(p.minimumBalance),
-    allowPartialWithdrawal: p.allowPartialWithdrawal, active: p.active,
+    allowPartialWithdrawal: p.allowPartialWithdrawal,
+    allowEarlyBreak: p.allowEarlyBreak, earlyBreakPenaltyPercent: s(p.earlyBreakPenaltyPercent), active: p.active,
   }
 }
 
@@ -125,6 +133,8 @@ export function savingsProductPayload(f: SavingsProductForm, adminId: string, ex
     if (maxDurationDays !== null && minDurationDays > maxDurationDays) return { error: 'Minimum duration cannot be longer than the maximum.' }
     const lockinPeriod = read(f.lockinPeriod, 'Lock-in period', { integer: true, optional: true }) ?? 0
     const minimumBalance = read(f.minimumBalance, 'Minimum balance', { optional: true }) ?? 0
+    const earlyBreakPenaltyPercent = read(f.earlyBreakPenaltyPercent, 'Early cash out fee', { optional: !f.allowEarlyBreak }) ?? 0
+    if (earlyBreakPenaltyPercent > 100) return { error: 'Early cash out fee cannot exceed 100%.' }
     const minimumBalanceForInterestCalculation = read(f.minimumBalanceForInterestCalculation, 'Minimum balance for interest', { optional: true }) ?? 0
     const carried = Object.fromEntries(Object.keys(HIDDEN_DEFAULTS).map(k => [k, existing && k in existing.raw ? existing.raw[k] : HIDDEN_DEFAULTS[k as keyof typeof HIDDEN_DEFAULTS]]))
     return {
@@ -135,6 +145,7 @@ export function savingsProductPayload(f: SavingsProductForm, adminId: string, ex
         compoundingPeriod: f.compoundingPeriod, interestPostingPeriodType: f.interestPostingPeriodType, interestCalculationType: f.interestCalculationType,
         minimumBalanceForInterestCalculation, lockinPeriod, lockinType: f.lockinType, minimumBalance,
         allowPartialWithdrawal: f.allowPartialWithdrawal,
+        allowEarlyBreak: f.allowEarlyBreak, earlyBreakPenaltyPercent,
         active: f.active, adminId,
       },
     }

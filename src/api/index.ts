@@ -654,8 +654,9 @@ export function declineLoanApplication(applicationId: string, payload: { adminId
   })
 }
 /**
- * Sets the core banking loan account on an approved (or offer-accepted) loan. Disbursement is refused until it is
- * set: "Loan account number must be set at approval before disbursement." (backend, 17 Nov 2026).
+ * Sets the core banking loan account on an approved (or offer-accepted) loan. Backend no longer requires it to
+ * disburse (staging, 26 Nov 2026), but GET /loans/{id}/core-details answers LOAN_ACCOUNT_NOT_SET without it, so the
+ * customer app can't show core-banking balances; the admin still asks for it before Disburse.
  */
 export function setLoanAccount(applicationId: string, payload: { adminId: string; loanAccountNumber: string }) {
   return request<unknown>(`/v1/bank-admin/loans/applications/${encodeURIComponent(applicationId)}/loan-account`, {
@@ -663,6 +664,7 @@ export function setLoanAccount(applicationId: string, payload: { adminId: string
     body: JSON.stringify(payload),
   })
 }
+/** Marks the loan DISBURSED and notifies the customer. No core-banking transfer: bankers credit the customer there. */
 export function disburseLoan(applicationId: string, adminId: string) {
   return request<{ success: boolean }>(`/v1/bank-admin/loans/applications/${applicationId}/disburse`, {
     method: 'POST',
