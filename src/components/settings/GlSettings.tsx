@@ -9,7 +9,7 @@ import { FormSkeleton } from '../ui/Skeleton'
 const FIELDS: { id: keyof GlAccounts; label: string; desc: string }[] = [
   { id: 'loanGlAccount', label: 'Loan GL account', desc: 'Ledger account loan disbursements and repayments post to.' },
   { id: 'savingsGlAccount', label: 'Savings GL account', desc: 'Credited when customers top up a savings plan. If empty, top-ups go to the savings pool account.' },
-  { id: 'savingsPoolAccount', label: 'Savings pool account', desc: 'Source account debited when savings interest is credited to customers.' },
+  { id: 'savingsPoolAccount', label: 'Savings pool account', desc: 'Source account debited when savings interest is credited and when customers cash out a plan. Cash outs fail until this is set.' },
   { id: 'cardFeeAccount', label: 'Card fee account', desc: 'Receives card issuance and maintenance fees.' },
   { id: 'nipFeeAccount', label: 'NIP fee account', desc: 'Receives NIP transfer fees.' },
 ]
