@@ -153,7 +153,7 @@ export function LoanApplicationDetailsPage() {
             )}
             {acts.canDisburse && (
               <Button onClick={() => setAction('disburse')} disabled={!app.coreLoanAccount}
-                title={app.coreLoanAccount ? undefined : 'Set the core banking loan account number first: the bank refuses to pay out without it.'}>
+                title={app.coreLoanAccount ? undefined : 'Set the core banking loan account number first, so the app can show the customer their balance from core banking.'}>
                 <Banknote size={15} /> Disburse
               </Button>
             )}
@@ -184,7 +184,7 @@ export function LoanApplicationDetailsPage() {
           <span>
             {app.coreLoanAccount
               ? <>Core banking loan account: <span className="font-mono font-semibold">{app.coreLoanAccount}</span></>
-              : 'No core banking loan account yet. Set it before disbursing; the bank refuses to pay out without it.'}
+              : 'No core banking loan account yet. Set it before disbursing, so the app can show the customer their balance from core banking.'}
           </span>
           <button onClick={() => setAction('loanAccount')} className="font-semibold underline cursor-pointer shrink-0">{app.coreLoanAccount ? 'Change' : 'Set now'}</button>
         </div>
@@ -509,14 +509,14 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
         </div>
       </Modal>
 
-      <Modal open={action === 'disburse'} onClose={onClose} title="Disburse loan" width="max-w-lg"
-        footer={footer(`Disburse ${naira(app.approved ?? app.requested)}`, 'primary', !app.coreLoanAccount, () =>
-          run(() => disburseLoan(app.id, adminId), `${naira(app.approved ?? app.requested)} disbursed to ${app.customer?.name ?? 'the customer'}.`))}>
+      <Modal open={action === 'disburse'} onClose={onClose} title="Mark loan as disbursed" width="max-w-lg"
+        footer={footer('Mark as disbursed', 'primary', !app.coreLoanAccount, () =>
+          run(() => disburseLoan(app.id, adminId), `${app.number} marked as disbursed. Make sure ${app.customer?.name ?? 'the customer'} has been credited in core banking.`))}>
         <div className="space-y-4">
           <div className="rounded-xl bg-slate-50 px-4 py-4 text-center">
-            <p className="text-xs text-slate-500">Paying out</p>
+            <p className="text-xs text-slate-500">Loan amount</p>
             <p className="text-3xl font-black text-slate-800">{naira(app.approved ?? app.requested)}</p>
-            <p className="text-xs text-slate-500 mt-1">to {app.customer?.name ?? 'customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span></p>
+            <p className="text-xs text-slate-500 mt-1">for {app.customer?.name ?? 'customer'} · <span className="font-mono">{app.customer?.accountNumber ?? '—'}</span></p>
             <p className="text-xs text-slate-500">Loan account <span className="font-mono">{app.coreLoanAccount || 'not set'}</span></p>
           </div>
           {!app.offerAccepted && app.status !== 'OFFER_ACCEPTED' && (
@@ -524,7 +524,11 @@ function DecisionModals({ app, product, action, onClose, onDone, adminId, schedu
               <AlertTriangle size={14} className="shrink-0 mt-0.5" /> The customer hasn't accepted the offer yet. Send the offer letter first unless they've agreed another way.
             </p>
           )}
-          <p className="text-xs text-slate-500">This moves money into the customer's account and starts repayments. It can't be undone here.</p>
+          {/* Backend (handoff page; checked on staging 26 Nov 2026): disburse only sets DISBURSED and notifies the customer. */}
+          <p className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" /> This does not move any money. Book the loan and credit the customer's account in core banking first.
+          </p>
+          <p className="text-xs text-slate-500">Marking it disbursed notifies the customer and starts repayments in the app. It can't be undone here.</p>
         </div>
       </Modal>
 
